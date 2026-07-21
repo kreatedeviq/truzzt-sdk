@@ -37,11 +37,21 @@ Merged from the library manifest:
 
 - `READ_PHONE_STATE`
 - `READ_PHONE_NUMBERS`
+- `READ_CONTACTS` (backup: saved "my number" contacts)
 - `CAMERA`
 - `INTERNET`
 - `ACCESS_NETWORK_STATE`
 
 Runtime: call `Niv2faSdk.requestPermissions(activity)` before verify.
+
+## How we find your number
+
+| Source | What it is |
+|--------|------------|
+| **SIM chip (SIM1 / SIM2)** | Primary — `READ_PHONE_NUMBERS` |
+| **Saved owner contacts** | Backup — contacts named e.g. `My number`, `رقمي`, `My line` |
+
+If the carrier leaves MSISDN blank on the SIM, a saved contact like **"رقمي Asia"** can still match (same as many dual-SIM users do manually).
 
 ## Methods
 

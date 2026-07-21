@@ -72,6 +72,10 @@ public final class SimBridge {
                 != PackageManager.PERMISSION_GRANTED) {
             need.add(Manifest.permission.CAMERA);
         }
+        if (ContextCompat.checkSelfPermission(app, Manifest.permission.READ_CONTACTS)
+                != PackageManager.PERMISSION_GRANTED) {
+            need.add(Manifest.permission.READ_CONTACTS);
+        }
         if (!need.isEmpty()) {
             ActivityCompat.requestPermissions(activity, need.toArray(new String[0]), REQ_PERMS);
         }
@@ -100,9 +104,43 @@ public final class SimBridge {
         return "";
     }
 
+    public boolean hasContactsPermission() {
+        return ContextCompat.checkSelfPermission(app, Manifest.permission.READ_CONTACTS)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
     public String readSimsJson() {
         JSONArray out = new JSONArray();
-        if (!hasPhonePerms()) return out.toString();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        if (hasPhonePerms()) {
+            try {
+                JSONArray sims = readSimLinesArray();
+                for (int i = 0; i < sims.length(); i++) {
+                    JSONObject o = sims.getJSONObject(i);
+                    String dig = digits(o.optString("phone", ""));
+                    if (dig.length() < 8 || seen.contains(dig)) continue;
+                    seen.add(dig);
+                    out.put(o);
+                }
+            } catch (Exception ignored) {}
+        }
+        if (hasContactsPermission()) {
+            try {
+                JSONArray saved = ContactLineReader.readOwnerLines(app);
+                for (int i = 0; i < saved.length(); i++) {
+                    JSONObject o = saved.getJSONObject(i);
+                    String dig = digits(o.optString("phone", ""));
+                    if (dig.length() < 8 || seen.contains(dig)) continue;
+                    seen.add(dig);
+                    out.put(o);
+                }
+            } catch (Exception ignored) {}
+        }
+        return out.toString();
+    }
+
+    private JSONArray readSimLinesArray() {
+        JSONArray out = new JSONArray();
         try {
             SubscriptionManager sm = (SubscriptionManager) app.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
             TelephonyManager baseTm = (TelephonyManager) app.getSystemService(Context.TELEPHONY_SERVICE);
@@ -140,6 +178,7 @@ public final class SimBridge {
                     o.put("carrier", info.getCarrierName() != null ? info.getCarrierName().toString() : "");
                     o.put("simSlotIndex", info.getSimSlotIndex());
                     o.put("subscriptionId", info.getSubscriptionId());
+                    o.put("source", "sim_chip");
                     out.put(o);
                 }
             } else if (baseTm != null) {
@@ -152,11 +191,12 @@ public final class SimBridge {
                     o.put("msisdn", dig);
                     o.put("number", dig);
                     o.put("raw", number);
+                    o.put("source", "sim_chip");
                     out.put(o);
                 }
             }
         } catch (Exception ignored) {}
-        return out.toString();
+        return out;
     }
 
     private static boolean blank(String s) { return s == null || s.trim().isEmpty(); }

@@ -5,7 +5,7 @@ import WebKit
 /// Embeddable NIV2FA verify for iOS.
 ///
 /// Apple does not expose SIM-chip MSISDN. We read the user's line number(s) from
-/// Contacts → My Card (Me), match against the session registered number, and fail if no match.
+/// Contacts (My Card + saved "my number" contacts), match against the session registered number, and fail if no match.
 public enum Niv2faSdk {
     public struct Result: Codable {
         public let matched: Bool
@@ -46,7 +46,7 @@ public enum Niv2faSdk {
         apiKey.hasPrefix("niv_live_") && projectId.hasPrefix("proj_")
     }
 
-    /// Lines read from this device (Contacts Me card) after permission.
+    /// Lines read from this device (Contacts) after permission.
     public static func getSimPhones() -> [[String: Any]] {
         cachedLines
     }
@@ -124,7 +124,7 @@ public enum Niv2faSdk {
                         matched: false,
                         status: "failed",
                         code: "LINE_REQUIRED",
-                        message: "No phone number on this device. Add your number in Contacts → My Card (Me), then retry."
+                        message: "No phone number on this device. Add your number in Contacts → My Card (Me) or save a contact named \"My number\" / \"رقمي\", then retry."
                     ))
                     return
                 }
@@ -176,12 +176,16 @@ final class ActivationPermissionViewController: UIViewController {
         body.font = .preferredFont(forTextStyle: .body)
         body.textColor = .label
         body.text = """
-        NIV2FA will read the phone number(s) saved for you on this iPhone (Contacts → My Card) and compare them to the number used for register, login, forgot password, or order confirm.
+        NIV2FA will read phone number(s) saved on this iPhone and compare them to the number used for register, login, forgot password, or order confirm.
+
+        We check:
+        • Contacts → My Card (Me) — where iOS stores your profile number
+        • Saved contacts you labeled as your own line (e.g. "My number", "رقمي")
 
         • We do not read the SIM chip (Apple does not allow apps to do that).
-        • We do not send OTP codes.
-        • If your number on this device does not match the registered line, verification fails.
-        • Tip: open Contacts, tap your profile card (Me), and add your mobile number if it is missing.
+        • We do not place background calls or send OTP codes.
+        • If none of your saved lines match the registered number, verification fails.
+        • Tip: many users save each SIM as a contact (like "رقمي Asia") — that works too.
 
         Tap Allow to continue, or Don’t Allow to cancel.
         """
@@ -280,7 +284,7 @@ final class Niv2faVerifyViewController: UIViewController, WKScriptMessageHandler
           }
         };
         window.Niv2faAgent = {
-          requestPermissions: function() { return JSON.stringify({ granted: true, platform: 'ios', mode: 'contacts_me' }); },
+          requestPermissions: function() { return JSON.stringify({ granted: true, platform: 'ios', mode: 'contacts_multi' }); },
           requestPhonePermissions: function() { return this.requestPermissions(); },
           requestSimPermissions: function() { return this.requestPermissions(); },
           ensurePermissions: function() { return this.requestPermissions(); },
