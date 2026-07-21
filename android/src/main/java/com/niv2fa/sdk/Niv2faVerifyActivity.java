@@ -129,6 +129,17 @@ public class Niv2faVerifyActivity extends AppCompatActivity {
     }
 
     @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != SimBridge.REQ_PERMS || webView == null) return;
+        webView.postDelayed(() -> webView.evaluateJavascript(
+                "(function(){try{if(typeof window.__niv2faRetrySimRead==='function')window.__niv2faRetrySimRead();}"
+                        + "catch(e){}})();",
+                null
+        ), 400);
+    }
+
+    @Override
     public void onBackPressed() {
         if (webView != null && webView.canGoBack()) {
             webView.goBack();

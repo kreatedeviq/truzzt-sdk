@@ -129,11 +129,13 @@ public final class SimBridge {
                     if (blank(number)) {
                         try { number = safe(info.getNumber()); } catch (Exception ignored) {}
                     }
+                    String dig = digits(number);
+                    if (dig.isEmpty()) continue;
                     JSONObject o = new JSONObject();
                     o.put("slot", slot);
-                    o.put("phone", digits(number));
-                    o.put("msisdn", digits(number));
-                    o.put("number", digits(number));
+                    o.put("phone", dig);
+                    o.put("msisdn", dig);
+                    o.put("number", dig);
                     o.put("raw", number == null ? "" : number);
                     o.put("carrier", info.getCarrierName() != null ? info.getCarrierName().toString() : "");
                     o.put("simSlotIndex", info.getSimSlotIndex());
@@ -142,13 +144,16 @@ public final class SimBridge {
                 }
             } else if (baseTm != null) {
                 String number = safe(baseTm.getLine1Number());
-                JSONObject o = new JSONObject();
-                o.put("slot", "sim1");
-                o.put("phone", digits(number));
-                o.put("msisdn", digits(number));
-                o.put("number", digits(number));
-                o.put("raw", number);
-                out.put(o);
+                String dig = digits(number);
+                if (!dig.isEmpty()) {
+                    JSONObject o = new JSONObject();
+                    o.put("slot", "sim1");
+                    o.put("phone", dig);
+                    o.put("msisdn", dig);
+                    o.put("number", dig);
+                    o.put("raw", number);
+                    out.put(o);
+                }
             }
         } catch (Exception ignored) {}
         return out.toString();

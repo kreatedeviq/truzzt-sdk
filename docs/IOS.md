@@ -1,17 +1,13 @@
 # NIV2FA iOS SDK (Swift)
 
-Verification works on **iOS** the same product rule as Android: registered line must match **SIM1 or SIM2**.
+Opens the verify session in-app. **Users never type SIM numbers** — the SDK bridge is responsible for line identity (same product rule as Android).
 
-> **How sharing works on iPhone**  
-> Apple does **not** allow App Store apps to silently read the phone number from the SIM chip.  
-> NIV2FA therefore asks the user: **“Share SIM details?”** → **Allow** / **Don’t Allow**.  
-> If they Allow, they enter SIM1 (required) and optional SIM2 (from Settings → Cellular).  
-> Those values are injected into the verify WebView and matched like Android.
+> Apple does not expose SIM MSISDN to third-party apps the way Android `READ_PHONE_NUMBERS` does. For automatic dual-SIM chip match, use the **Android SDK / Agent**. iOS still runs the same verify WebView + `Allow` permission + success/fail callback when a match can be confirmed.
 
-Standalone Agent APK (Android-only helper): https://jeebly.kreateiq.com/niv2fa/agent  
-Website docs: https://jeebly.kreateiq.com/niv2fa/docs/sdk
+Website: https://jeebly.kreateiq.com/niv2fa/docs/sdk  
+Repo: https://github.com/kreatedeviq/niv2fa-sdk
 
-## Install (Swift Package Manager)
+## Install (SPM)
 
 ```swift
 .package(url: "https://github.com/kreatedeviq/niv2fa-sdk.git", from: "1.0.0")
@@ -19,61 +15,27 @@ Website docs: https://jeebly.kreateiq.com/niv2fa/docs/sdk
 
 Product: **Niv2faSdk** (`ios/`).
 
-```bash
-git clone https://github.com/kreatedeviq/niv2fa-sdk.git
-```
-
-## Info.plist
-
-```xml
-<key>NSCameraUsageDescription</key>
-<string>Camera is used to scan NIV2FA verify QR codes.</string>
-```
-
 ## Methods
 
 | Method | Description |
 |--------|-------------|
-| `requestPermissions(from:completion:)` | Allow / Don’t Allow → share SIM1/(SIM2) form |
-| `getSimPhones()` | Lines the user chose to share |
-| `openVerify(from:sessionUrl:completion:)` | Prompts share if needed, then verify WebView |
-| `clearSharedSims()` | Clear cached shared lines |
+| `requestPermissions(from:completion:)` | Allow / Don’t Allow phone identity (no typing) |
+| `getSimPhones()` | Lines from native bridge (often `[]` on iOS) |
+| `openVerify(from:sessionUrl:completion:)` | Permission → WebView → `{ matched, … }` |
 
-## Swift example
+## Example
 
 ```swift
-import Niv2faSdk
-
-Niv2faSdk.requestPermissions(from: self) { granted, sims in
-  guard granted else { return } // user tapped Don’t Allow
-  print("Shared", sims.map { $0.phone })
-
-  Niv2faSdk.openVerify(from: self, sessionUrl: verifyUrl) { result in
-    if result.matched {
-      print("OK", result.sessionId ?? "", result.matchedSlot ?? "")
-    } else {
-      print("Fail", result.code ?? "", result.message ?? "")
-    }
-  }
-}
-
-// Or one call — openVerify asks for share permission first:
 Niv2faSdk.openVerify(from: self, sessionUrl: verifyUrl) { result in
-  // …
+  if result.matched {
+    // Success — also trust your project webhook
+  }
 }
 ```
 
-## End-to-end
+## Flow
 
-1. Backend creates session → `verifyUrl`.
-2. User **Allows** sharing SIM details and enters line number(s).
-3. Match SIM1 or SIM2 to registered phone → webhook `identity.verified`.
-4. Prefer webhook as source of truth in your backend.
-
-## Troubleshooting
-
-| Issue | Fix |
-|-------|-----|
-| `permission_denied` | User chose Don’t Allow — explain and ask again |
-| Wrong number | User must share the SIM that matches the registered line |
-| Cancelled | User closed the sheet |
+1. Backend creates session → `verifyUrl`
+2. SDK asks **Allow** (not manual SIM entry)
+3. Verify page uses the SDK bridge only
+4. Match → `matched: true` + webhook `identity.verified`

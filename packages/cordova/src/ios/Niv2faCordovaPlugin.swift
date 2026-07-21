@@ -11,13 +11,11 @@ class Niv2faCordovaPlugin: CDVPlugin {
             commandDelegate.send(r, callbackId: command.callbackId)
             return
         }
-        Niv2faSdk.requestPermissions(from: vc) { granted, sims in
+        Niv2faSdk.requestPermissions(from: vc) { granted in
             let payload: [String: Any] = [
                 "requested": true,
                 "granted": granted,
-                "platform": "ios",
-                "mode": "user_share",
-                "simCount": sims.count
+                "platform": "ios"
             ]
             let r = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: payload)
             self.commandDelegate.send(r, callbackId: command.callbackId)
@@ -28,8 +26,7 @@ class Niv2faCordovaPlugin: CDVPlugin {
     func getSimPhones(command: CDVInvokedUrlCommand) {
         let r = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: [
             "sims": Niv2faSdk.getSimPhones(),
-            "platform": "ios",
-            "mode": "user_share"
+            "platform": "ios"
         ])
         commandDelegate.send(r, callbackId: command.callbackId)
     }

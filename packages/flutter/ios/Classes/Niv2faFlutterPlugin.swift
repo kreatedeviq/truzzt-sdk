@@ -25,17 +25,11 @@ public class Niv2faFlutterPlugin: NSObject, FlutterPlugin {
         result(FlutterError(code: "no_root", message: "No view controller", details: nil))
         return
       }
-      Niv2faSdk.requestPermissions(from: top) { granted, sims in
-        result([
-          "requested": true,
-          "granted": granted,
-          "platform": "ios",
-          "mode": "user_share",
-          "simCount": sims.count
-        ])
+      Niv2faSdk.requestPermissions(from: top) { granted in
+        result(["requested": true, "granted": granted, "platform": "ios"])
       }
     case "getSimPhones":
-      result(["sims": Niv2faSdk.getSimPhones(), "platform": "ios", "mode": "user_share"])
+      result(["sims": Niv2faSdk.getSimPhones(), "platform": "ios"])
     case "openVerify":
       guard let args = call.arguments as? [String: Any],
             let url = args["url"] as? String, !url.isEmpty,

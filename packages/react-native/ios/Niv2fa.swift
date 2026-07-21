@@ -23,24 +23,14 @@ class Niv2fa: NSObject {
         reject("no_root", "No root view controller", nil)
         return
       }
-      Niv2faSdk.requestPermissions(from: top) { granted, sims in
-        resolve([
-          "requested": true,
-          "granted": granted,
-          "platform": "ios",
-          "mode": "user_share",
-          "simCount": sims.count
-        ] as [String: Any])
+      Niv2faSdk.requestPermissions(from: top) { granted in
+        resolve(["requested": true, "granted": granted, "platform": "ios"] as [String: Any])
       }
     }
   }
 
   @objc func getSimPhones(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
-    resolve([
-      "sims": Niv2faSdk.getSimPhones(),
-      "platform": "ios",
-      "mode": "user_share"
-    ] as [String: Any])
+    resolve(["sims": Niv2faSdk.getSimPhones(), "platform": "ios"] as [String: Any])
   }
 
   @objc func openVerify(_ opts: NSDictionary, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {

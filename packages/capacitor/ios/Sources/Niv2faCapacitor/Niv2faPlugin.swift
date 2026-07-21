@@ -19,13 +19,11 @@ public class Niv2faPlugin: CAPPlugin, CAPBridgedPlugin {
                 call.reject("no_view_controller")
                 return
             }
-            Niv2faSdk.requestPermissions(from: vc) { granted, sims in
+            Niv2faSdk.requestPermissions(from: vc) { granted in
                 call.resolve([
                     "requested": true,
                     "granted": granted,
-                    "platform": "ios",
-                    "mode": "user_share",
-                    "simCount": sims.count
+                    "platform": "ios"
                 ])
             }
         }
@@ -34,8 +32,7 @@ public class Niv2faPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func getSimPhones(_ call: CAPPluginCall) {
         call.resolve([
             "sims": Niv2faSdk.getSimPhones(),
-            "platform": "ios",
-            "mode": "user_share"
+            "platform": "ios"
         ])
     }
 
