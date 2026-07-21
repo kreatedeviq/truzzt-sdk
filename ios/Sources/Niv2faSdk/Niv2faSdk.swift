@@ -2,15 +2,12 @@ import Foundation
 import UIKit
 import WebKit
 
-/// Embeddable NIV2FA verify for iOS host apps.
+/// Embeddable NIV2FA verify for iOS.
 ///
-/// Product rule (same as Android): the **SDK** reads device line identity and
-/// confirms a match — users never type SIM numbers into the verify UI.
-///
-/// Note: Apple does not expose SIM MSISDN to third-party App Store apps the way
-/// Android `READ_PHONE_NUMBERS` does. On iOS, open the verify session in the SDK
-/// WebView after the user Allows access; match succeeds when a readable line is
-/// available to the bridge. Prefer Android SDK / Agent for dual-SIM chip MSISDN.
+/// 1. Call `Niv2faSdk.configure(apiKey:projectId:)` with dashboard credentials.
+/// 2. Access is checked against the API (trial or active subscription required).
+/// 3. Custom **Activate account** permission (not a system Phone warning) → verify.
+/// 4. On Allow, iOS completes match via activation consent (Apple blocks silent SIM MSISDN).
 public enum Niv2faSdk {
     public struct Result: Codable {
         public let matched: Bool
@@ -34,31 +31,69 @@ public enum Niv2faSdk {
         }
     }
 
-    /// Ask the user to Allow the SDK to use phone / SIM identity for this verification.
-    /// No manual number entry — numbers come from the native bridge only.
+    private static var apiKey = ""
+    private static var projectId = ""
+    private static var baseUrl = "https://jeebly.kreateiq.com/niv2fa"
+
+    public static func configure(apiKey: String, projectId: String, baseUrl: String? = nil) {
+        self.apiKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.projectId = projectId.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let b = baseUrl?.trimmingCharacters(in: .whitespacesAndNewlines), !b.isEmpty {
+            self.baseUrl = b.hasSuffix("/") ? String(b.dropLast()) : b
+        }
+    }
+
+    public static var isConfigured: Bool {
+        apiKey.hasPrefix("niv_live_") && projectId.hasPrefix("proj_")
+    }
+
+    public static func getSimPhones() -> [[String: Any]] { [] }
+
+    /// Validate API key + project (trial or subscribed). Fails if not entitled.
+    public static func validateAccess(completion: @escaping (Bool, String?, String?) -> Void) {
+        guard isConfigured else {
+            completion(false, "CONFIG_REQUIRED", "Call Niv2faSdk.configure(apiKey:projectId:) first")
+            return
+        }
+        var comps = URLComponents(string: baseUrl + "/secure-api/v1/sdk/access")!
+        comps.queryItems = [URLQueryItem(name: "projectId", value: projectId)]
+        var req = URLRequest(url: comps.url!)
+        req.httpMethod = "GET"
+        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        URLSession.shared.dataTask(with: req) { data, resp, err in
+            DispatchQueue.main.async {
+                if let err = err {
+                    completion(false, "NETWORK", err.localizedDescription)
+                    return
+                }
+                guard let data = data,
+                      let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    completion(false, "BAD_RESPONSE", "Invalid server response")
+                    return
+                }
+                let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+                if code >= 400 || obj["success"] as? Bool != true {
+                    completion(false, obj["code"] as? String ?? "ACCESS_DENIED", obj["message"] as? String)
+                    return
+                }
+                completion(true, nil, nil)
+            }
+        }.resume()
+    }
+
+    /// Custom Activate-account permission (no iOS system Phone warning), then verify.
     public static func requestPermissions(
         from presenter: UIViewController,
         completion: @escaping (_ granted: Bool) -> Void
     ) {
         DispatchQueue.main.async {
-            let alert = UIAlertController(
-                title: "Allow phone identity?",
-                message: "NIV2FA will read this device’s line identity through the SDK to confirm your number. You will not type SIM numbers.",
-                preferredStyle: .alert
-            )
-            alert.addAction(UIAlertAction(title: "Don’t Allow", style: .cancel) { _ in
-                completion(false)
-            })
-            alert.addAction(UIAlertAction(title: "Allow", style: .default) { _ in
-                completion(true)
-            })
-            presenter.present(alert, animated: true)
+            let vc = ActivationPermissionViewController { granted in
+                completion(granted)
+            }
+            let nav = UINavigationController(rootViewController: vc)
+            nav.modalPresentationStyle = .formSheet
+            presenter.present(nav, animated: true)
         }
-    }
-
-    /// SIM lines from the native bridge (empty when the OS does not expose MSISDN).
-    public static func getSimPhones() -> [[String: Any]] {
-        return []
     }
 
     public static func openVerify(
@@ -66,23 +101,116 @@ public enum Niv2faSdk {
         sessionUrl: String,
         completion: @escaping (Result) -> Void
     ) {
-        requestPermissions(from: presenter) { granted in
-            if !granted {
-                completion(.init(
-                    matched: false,
-                    status: "cancelled",
-                    code: "permission_denied",
-                    message: "User declined phone identity access"
-                ))
+        validateAccess { ok, code, message in
+            guard ok else {
+                completion(.init(matched: false, status: "error", code: code, message: message))
                 return
             }
-            let vc = Niv2faVerifyViewController(sessionUrl: sessionUrl, completion: completion)
-            let nav = UINavigationController(rootViewController: vc)
-            nav.modalPresentationStyle = .fullScreen
-            presenter.present(nav, animated: true)
+            requestPermissions(from: presenter) { granted in
+                if !granted {
+                    completion(.init(
+                        matched: false,
+                        status: "cancelled",
+                        code: "permission_denied",
+                        message: "User declined account activation"
+                    ))
+                    return
+                }
+                let vc = Niv2faVerifyViewController(sessionUrl: sessionUrl, completion: completion)
+                let nav = UINavigationController(rootViewController: vc)
+                nav.modalPresentationStyle = .fullScreen
+                presenter.present(nav, animated: true)
+            }
         }
     }
 }
+
+// MARK: - Activate account permission (custom UI — avoids system Phone warnings)
+
+final class ActivationPermissionViewController: UIViewController {
+    private let onDone: (Bool) -> Void
+
+    init(onDone: @escaping (Bool) -> Void) {
+        self.onDone = onDone
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        title = "Activate account"
+        view.backgroundColor = .systemBackground
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            title: "Don’t Allow", style: .plain, target: self, action: #selector(deny)
+        )
+
+        let scroll = UIScrollView()
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(scroll)
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.spacing = 14
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        scroll.addSubview(stack)
+
+        let title = UILabel()
+        title.text = "Activate your account with NIV2FA"
+        title.font = .preferredFont(forTextStyle: .title2)
+        title.numberOfLines = 0
+
+        let body = UILabel()
+        body.numberOfLines = 0
+        body.font = .preferredFont(forTextStyle: .body)
+        body.textColor = .label
+        body.text = """
+        To finish activating this account, NIV2FA needs your permission to confirm the phone number registered for this signup / login / order.
+
+        What happens next
+        • We match the registered number for this activation session.
+        • No OTP codes are sent or typed.
+        • No system “Phone” warning is required on iOS for this step.
+        • You can tap Don’t Allow to cancel activation.
+
+        By tapping Allow, you confirm you control this phone line and authorize NIV2FA to complete identity verification for account activation.
+        """
+
+        let allow = UIButton(type: .system)
+        allow.setTitle("Allow — activate account", for: .normal)
+        allow.titleLabel?.font = .boldSystemFont(ofSize: 17)
+        allow.backgroundColor = UIColor(red: 0.345, green: 0.212, blue: 0.780, alpha: 1)
+        allow.setTitleColor(.white, for: .normal)
+        allow.layer.cornerRadius = 12
+        allow.contentEdgeInsets = UIEdgeInsets(top: 14, left: 16, bottom: 14, right: 16)
+        allow.addTarget(self, action: #selector(allowTapped), for: .touchUpInside)
+
+        stack.addArrangedSubview(title)
+        stack.addArrangedSubview(body)
+        stack.addArrangedSubview(allow)
+
+        NSLayoutConstraint.activate([
+            scroll.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scroll.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scroll.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            stack.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor, constant: 20),
+            stack.leadingAnchor.constraint(equalTo: scroll.frameLayoutGuide.leadingAnchor, constant: 20),
+            stack.trailingAnchor.constraint(equalTo: scroll.frameLayoutGuide.trailingAnchor, constant: -20),
+            stack.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor, constant: -24),
+            stack.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor, constant: -40)
+        ])
+    }
+
+    @objc private func deny() {
+        dismiss(animated: true) { self.onDone(false) }
+    }
+
+    @objc private func allowTapped() {
+        dismiss(animated: true) { self.onDone(true) }
+    }
+}
+
+// MARK: - Verify WebView
 
 final class Niv2faVerifyViewController: UIViewController, WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate {
     private let sessionUrl: String
@@ -113,6 +241,7 @@ final class Niv2faVerifyViewController: UIViewController, WKScriptMessageHandler
         let js = """
         window.__NIV2FA_SDK__ = true;
         window.__NIV2FA_PLATFORM__ = 'ios';
+        window.__NIV2FA_IOS_ACTIVATION__ = true;
         window.Niv2faHost = {
           onResult: function(json) {
             try { window.webkit.messageHandlers.Niv2faHost.postMessage(json); } catch (e) {}
@@ -122,7 +251,7 @@ final class Niv2faVerifyViewController: UIViewController, WKScriptMessageHandler
           }
         };
         window.Niv2faAgent = {
-          requestPermissions: function() { return JSON.stringify({ granted: true, platform: 'ios' }); },
+          requestPermissions: function() { return JSON.stringify({ granted: true, platform: 'ios', mode: 'activation' }); },
           requestPhonePermissions: function() { return this.requestPermissions(); },
           requestSimPermissions: function() { return this.requestPermissions(); },
           ensurePermissions: function() { return this.requestPermissions(); },

@@ -28,18 +28,25 @@ Then follow the platform guide above (Gradle module / SPM / npm / pub / Cordova 
 ## Shared API
 
 ```ts
-await Niv2fa.requestPermissions()  // Allow Phone / identity (no typing)
-await Niv2fa.getSimPhones()        // SDK-read SIM lines
+// Required — dashboard API key + project (active trial or subscription)
+await Niv2fa.configure({ apiKey: 'niv_live_…', projectId: 'proj_…' })
+
+await Niv2fa.requestPermissions()
+await Niv2fa.getSimPhones()
 await Niv2fa.openVerify({ url })   // → { matched, matchedSlot, sessionId }
 ```
+
+Backend `POST /secure-api/v1/verifications` also requires `projectId` + valid Bearer key.  
+Fails with `PLAN_REQUIRED` (402) if trial ended and no subscription.
 
 On success your **project webhook** receives `identity.verified`.
 
 ## Important
 
-- **Users never type SIM numbers.** The SDK / Agent reads them after permission.
-- Match SIM1 or SIM2 to the registered line → success response to the host app.
-- Chrome cannot read SIMs — always open `verifyUrl` inside the SDK.
+- **Configure first** or SDK methods / API return errors.
+- **Android:** Phone permission → auto-read SIM1/SIM2 → match.
+- **iOS:** custom **Activate account** Allow (no system Phone warning) → activation match.
+- Chrome cannot verify — open `verifyUrl` inside the SDK.
 - Standalone Agent APK is an optional Android helper.
 
 ## License

@@ -46,6 +46,16 @@ public class Niv2faFlutterPlugin implements FlutterPlugin, MethodChannel.MethodC
             return;
         }
         switch (call.method) {
+            case "configure": {
+                String key = call.argument("apiKey");
+                String proj = call.argument("projectId");
+                String base = call.argument("baseUrl");
+                Niv2faSdk.configure(key, proj, base);
+                Map<String, Object> cfg = new HashMap<>();
+                cfg.put("ok", Niv2faSdk.isConfigured());
+                result.success(cfg);
+                break;
+            }
             case "requestPermissions":
                 Niv2faSdk.requestPermissions(activity);
                 Map<String, Object> ok = new HashMap<>();

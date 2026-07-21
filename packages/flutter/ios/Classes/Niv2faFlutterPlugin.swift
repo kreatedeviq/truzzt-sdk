@@ -20,6 +20,14 @@ public class Niv2faFlutterPlugin: NSObject, FlutterPlugin {
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
+    case "configure":
+      if let args = call.arguments as? [String: Any] {
+        let key = args["apiKey"] as? String ?? ""
+        let proj = args["projectId"] as? String ?? ""
+        let base = args["baseUrl"] as? String
+        Niv2faSdk.configure(apiKey: key, projectId: proj, baseUrl: base)
+      }
+      result(["ok": Niv2faSdk.isConfigured])
     case "requestPermissions":
       guard let top = topViewController() else {
         result(FlutterError(code: "no_root", message: "No view controller", details: nil))
