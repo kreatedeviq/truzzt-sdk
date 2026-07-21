@@ -28,18 +28,19 @@ Then follow the platform guide above (Gradle module / SPM / npm / pub / Cordova 
 ## Shared API
 
 ```ts
-await Niv2fa.requestPermissions()
-await Niv2fa.getSimPhones()          // Android SIMs; iOS []
-await Niv2fa.openVerify({ url })     // → { matched, matchedSlot, sessionId }
+await Niv2fa.requestPermissions()  // Android Phone dialog | iOS Allow + share SIM form
+await Niv2fa.getSimPhones()        // auto-read (Android) or user-shared (iOS)
+await Niv2fa.openVerify({ url })   // → { matched, matchedSlot, sessionId, platform }
 ```
 
 On success your **project webhook** receives `identity.verified`.
 
 ## Important
 
-- **Android** = full SIM1/SIM2 match.
-- **iOS** = in-app WebView only (Apple blocks SIM MSISDN).
-- Standalone Agent APK is **not** replaced by this repo.
+- Works on **Android and iOS** — same match rule (SIM1 or SIM2 = registered line).
+- **Android:** user grants Phone permission → chip MSISDN auto-read.
+- **iOS:** user taps **Allow** to share SIM details, then enters SIM1/(SIM2) (Apple blocks silent chip read).
+- Standalone Agent APK is optional (Android helper) and is **not** replaced by this repo.
 
 ## License
 

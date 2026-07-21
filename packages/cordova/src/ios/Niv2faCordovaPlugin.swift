@@ -1,22 +1,35 @@
 import Foundation
+import Niv2faSdk
+import UIKit
 
 @objc(Niv2faCordovaPlugin)
 class Niv2faCordovaPlugin: CDVPlugin {
     @objc(requestPermissions:)
     func requestPermissions(command: CDVInvokedUrlCommand) {
-        let r = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: [
-            "requested": true,
-            "platform": "ios",
-            "note": "iOS cannot read SIM MSISDN"
-        ])
-        commandDelegate.send(r, callbackId: command.callbackId)
+        guard let vc = self.viewController else {
+            let r = CDVPluginResult(status: CDVCommandStatus_ERROR, messageAs: "no_view_controller")
+            commandDelegate.send(r, callbackId: command.callbackId)
+            return
+        }
+        Niv2faSdk.requestPermissions(from: vc) { granted, sims in
+            let payload: [String: Any] = [
+                "requested": true,
+                "granted": granted,
+                "platform": "ios",
+                "mode": "user_share",
+                "simCount": sims.count
+            ]
+            let r = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: payload)
+            self.commandDelegate.send(r, callbackId: command.callbackId)
+        }
     }
 
     @objc(getSimPhones:)
     func getSimPhones(command: CDVInvokedUrlCommand) {
         let r = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: [
-            "sims": [],
-            "platform": "ios"
+            "sims": Niv2faSdk.getSimPhones(),
+            "platform": "ios",
+            "mode": "user_share"
         ])
         commandDelegate.send(r, callbackId: command.callbackId)
     }

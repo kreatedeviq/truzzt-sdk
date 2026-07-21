@@ -14,11 +14,29 @@ public class Niv2faPlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     @objc func requestPermissions(_ call: CAPPluginCall) {
-        call.resolve(["requested": true, "platform": "ios", "note": "iOS cannot grant SIM MSISDN access"])
+        DispatchQueue.main.async {
+            guard let vc = self.bridge?.viewController else {
+                call.reject("no_view_controller")
+                return
+            }
+            Niv2faSdk.requestPermissions(from: vc) { granted, sims in
+                call.resolve([
+                    "requested": true,
+                    "granted": granted,
+                    "platform": "ios",
+                    "mode": "user_share",
+                    "simCount": sims.count
+                ])
+            }
+        }
     }
 
     @objc func getSimPhones(_ call: CAPPluginCall) {
-        call.resolve(["sims": [], "platform": "ios"])
+        call.resolve([
+            "sims": Niv2faSdk.getSimPhones(),
+            "platform": "ios",
+            "mode": "user_share"
+        ])
     }
 
     @objc func openVerify(_ call: CAPPluginCall) {

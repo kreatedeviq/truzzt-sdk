@@ -70,4 +70,4 @@ if (r.matched) {
 |-------|-----|
 | Native module null | Rebuild app; register `Niv2faPackage` |
 | ClassNotFound Niv2faSdk | Add android library module |
-| iOS empty SIMs | Expected |
+| iOS share dialog | User must Allow, then enter SIM1/(SIM2) |

@@ -83,4 +83,4 @@ export class VerifyPage {
 |-------|-----|
 | Plugin not found | `npx cap sync` after install |
 | Unresolved `:niv2fa-sdk` | Add module in `settings.gradle` |
-| Empty SIMs on iOS | Expected (Apple restriction) |
+| iOS share dialog | User must Allow, then enter SIM1/(SIM2) from Settings → Cellular |

@@ -75,4 +75,4 @@ iOS: `NSCameraUsageDescription`.
 |-------|-----|
 | MissingPluginException | Full restart / rebuild native |
 | Unresolved niv2fa-sdk | Fix `settings.gradle` path |
-| iOS sims empty | Expected |
+| iOS share dialog | User must Allow, then enter SIM1/(SIM2) |

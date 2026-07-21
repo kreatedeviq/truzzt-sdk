@@ -76,4 +76,4 @@ async verify(url: string) {
 |-------|-----|
 | `Niv2fa is not defined` | Ensure device ready; plugin installed; rebuild native |
 | ClassNotFound `Niv2faSdk` | Link `niv2fa-sdk/android` library into Cordova Android |
-| iOS empty SIMs | Expected |
+| iOS share dialog | User must Allow, then enter SIM1/(SIM2) |

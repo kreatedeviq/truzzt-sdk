@@ -6,12 +6,41 @@ import Niv2faSdk
 class Niv2fa: NSObject {
   @objc static func requiresMainQueueSetup() -> Bool { true }
 
-  @objc func requestPermissions(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
-    resolve(["requested": true, "platform": "ios"] as [String: Any])
+  private func topVC() -> UIViewController? {
+    let root = UIApplication.shared.connectedScenes
+      .compactMap({ $0 as? UIWindowScene })
+      .flatMap({ $0.windows })
+      .first(where: { $0.isKeyWindow })?
+      .rootViewController
+    guard var top = root else { return nil }
+    while let p = top.presentedViewController { top = p }
+    return top
+  }
+
+  @objc func requestPermissions(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    DispatchQueue.main.async {
+      guard let top = self.topVC() else {
+        reject("no_root", "No root view controller", nil)
+        return
+      }
+      Niv2faSdk.requestPermissions(from: top) { granted, sims in
+        resolve([
+          "requested": true,
+          "granted": granted,
+          "platform": "ios",
+          "mode": "user_share",
+          "simCount": sims.count
+        ] as [String: Any])
+      }
+    }
   }
 
   @objc func getSimPhones(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
-    resolve(["sims": [] as [Any], "platform": "ios"] as [String: Any])
+    resolve([
+      "sims": Niv2faSdk.getSimPhones(),
+      "platform": "ios",
+      "mode": "user_share"
+    ] as [String: Any])
   }
 
   @objc func openVerify(_ opts: NSDictionary, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
@@ -21,16 +50,10 @@ class Niv2fa: NSObject {
       return
     }
     DispatchQueue.main.async {
-      guard let root = UIApplication.shared.connectedScenes
-        .compactMap({ $0 as? UIWindowScene })
-        .flatMap({ $0.windows })
-        .first(where: { $0.isKeyWindow })?
-        .rootViewController else {
+      guard let top = self.topVC() else {
         reject("no_root", "No root view controller", nil)
         return
       }
-      var top = root
-      while let p = top.presentedViewController { top = p }
       Niv2faSdk.openVerify(from: top, sessionUrl: url) { r in
         resolve([
           "matched": r.matched,

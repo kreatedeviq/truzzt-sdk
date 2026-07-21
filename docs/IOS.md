@@ -1,28 +1,27 @@
 # NIV2FA iOS SDK (Swift)
 
-In-app verify WebView for NIV2FA sessions on iOS.
+Verification works on **iOS** the same product rule as Android: registered line must match **SIM1 or SIM2**.
 
-> **Important:** Apple does **not** allow third-party apps to read SIM MSISDN.  
-> On iOS this SDK opens the verify session in-app and reports the page result. Full SIM1/SIM2 hardware match is **Android-only** today (carrier Silent Network Auth can be added later for iOS).
+> **How sharing works on iPhone**  
+> Apple does **not** allow App Store apps to silently read the phone number from the SIM chip.  
+> NIV2FA therefore asks the user: **“Share SIM details?”** → **Allow** / **Don’t Allow**.  
+> If they Allow, they enter SIM1 (required) and optional SIM2 (from Settings → Cellular).  
+> Those values are injected into the verify WebView and matched like Android.
 
-Standalone Agent APK (Android): https://jeebly.kreateiq.com/niv2fa/agent
+Standalone Agent APK (Android-only helper): https://jeebly.kreateiq.com/niv2fa/agent  
+Website docs: https://jeebly.kreateiq.com/niv2fa/docs/sdk
 
 ## Install (Swift Package Manager)
 
 ```swift
-// Package.swift or Xcode → Add Package
 .package(url: "https://github.com/kreatedeviq/niv2fa-sdk.git", from: "1.0.0")
 ```
 
-Product: **Niv2faSdk** (path `ios/`).
-
-Or:
+Product: **Niv2faSdk** (`ios/`).
 
 ```bash
 git clone https://github.com/kreatedeviq/niv2fa-sdk.git
 ```
-
-Add local package pointing at `niv2fa-sdk/ios`.
 
 ## Info.plist
 
@@ -35,48 +34,46 @@ Add local package pointing at `niv2fa-sdk/ios`.
 
 | Method | Description |
 |--------|-------------|
-| `Niv2faSdk.openVerify(from:sessionUrl:completion:)` | Present full-screen verify WebView |
-| `Niv2faSdk.getSimPhones()` | Always `[]` on iOS (API parity) |
+| `requestPermissions(from:completion:)` | Allow / Don’t Allow → share SIM1/(SIM2) form |
+| `getSimPhones()` | Lines the user chose to share |
+| `openVerify(from:sessionUrl:completion:)` | Prompts share if needed, then verify WebView |
+| `clearSharedSims()` | Clear cached shared lines |
 
 ## Swift example
 
 ```swift
 import Niv2faSdk
 
-Niv2faSdk.openVerify(from: self, sessionUrl: verifyUrl) { result in
-  if result.matched {
-    print("OK", result.sessionId ?? "", result.matchedSlot ?? "")
-  } else {
-    print("Fail", result.code ?? "", result.message ?? "")
+Niv2faSdk.requestPermissions(from: self) { granted, sims in
+  guard granted else { return } // user tapped Don’t Allow
+  print("Shared", sims.map { $0.phone })
+
+  Niv2faSdk.openVerify(from: self, sessionUrl: verifyUrl) { result in
+    if result.matched {
+      print("OK", result.sessionId ?? "", result.matchedSlot ?? "")
+    } else {
+      print("Fail", result.code ?? "", result.message ?? "")
+    }
   }
 }
-```
 
-## Result
-
-```swift
-public struct Result {
-  public let matched: Bool
-  public let status: String?
-  public let matchedSlot: String?
-  public let sessionId: String?
-  public let code: String?
-  public let message: String?
-  public let platform: String? // "ios"
+// Or one call — openVerify asks for share permission first:
+Niv2faSdk.openVerify(from: self, sessionUrl: verifyUrl) { result in
+  // …
 }
 ```
 
 ## End-to-end
 
 1. Backend creates session → `verifyUrl`.
-2. Call `openVerify`.
-3. Prefer also listening to your **project webhook** for authoritative `identity.verified`.
-4. For dual-SIM MSISDN proof, use Android SDK or the standalone Agent.
+2. User **Allows** sharing SIM details and enters line number(s).
+3. Match SIM1 or SIM2 to registered phone → webhook `identity.verified`.
+4. Prefer webhook as source of truth in your backend.
 
 ## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
-| Empty SIMs | Expected on iOS |
+| `permission_denied` | User chose Don’t Allow — explain and ask again |
+| Wrong number | User must share the SIM that matches the registered line |
 | Cancelled | User closed the sheet |
-| Need real SIM match | Use Android build / Agent APK |
