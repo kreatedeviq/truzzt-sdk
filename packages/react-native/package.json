@@ -1,0 +1,9 @@
+{
+  "name": "@niv2fa/react-native",
+  "version": "1.0.0",
+  "description": "NIV2FA Network Identity verify for React Native",
+  "main": "src/index.js",
+  "peerDependencies": {
+    "react-native": ">=0.70.0"
+  }
+}

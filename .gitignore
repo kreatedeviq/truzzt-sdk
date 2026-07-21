@@ -1,0 +1,13 @@
+# Build / IDE
+.gradle/
+build/
+*.iml
+.idea/
+DerivedData/
+Pods/
+.pub-cache/
+.dart_tool/
+node_modules/
+dist/
+local.properties
+*.apk

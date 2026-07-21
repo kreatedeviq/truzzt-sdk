@@ -1,0 +1,17 @@
+{
+  "name": "@niv2fa/capacitor",
+  "version": "1.0.0",
+  "description": "NIV2FA Network Identity verify plugin for Capacitor / Ionic",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist/", "android/", "ios/", "Niv2fa.podspec"],
+  "author": "Kreate Technologies LLC",
+  "license": "Proprietary",
+  "peerDependencies": {
+    "@capacitor/core": ">=5.0.0"
+  },
+  "capacitor": {
+    "android": { "src": "android" },
+    "ios": { "src": "ios" }
+  }
+}

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin id="cordova-plugin-niv2fa" version="1.0.0" xmlns="http://apache.org/cordova/ns/plugins/1.0">
+  <name>Niv2fa</name>
+  <description>NIV2FA Network Identity verification (SIM1/SIM2 match) for Cordova / Ionic Cordova</description>
+  <js-module src="www/niv2fa.js" name="Niv2fa">
+    <clobbers target="Niv2fa" />
+    <clobbers target="cordova.plugins.Niv2fa" />
+  </js-module>
+
+  <platform name="android">
+    <config-file target="res/xml/config.xml" parent="/*">
+      <feature name="Niv2fa">
+        <param name="android-package" value="com.niv2fa.cordova.Niv2faCordovaPlugin" />
+      </feature>
+    </config-file>
+    <config-file target="AndroidManifest.xml" parent="/manifest">
+      <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+      <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
+      <uses-permission android:name="android.permission.CAMERA" />
+      <uses-permission android:name="android.permission.INTERNET" />
+    </config-file>
+    <source-file src="src/android/Niv2faCordovaPlugin.java" target-dir="src/com/niv2fa/cordova" />
+    <!-- Host apps should also include niv2fa-sdk/android as a library module -->
+  </platform>
+
+  <platform name="ios">
+    <config-file target="config.xml" parent="/*">
+      <feature name="Niv2fa">
+        <param name="ios-package" value="Niv2faCordovaPlugin" />
+      </feature>
+    </config-file>
+    <config-file target="*-Info.plist" parent="NSCameraUsageDescription">
+      <string>Camera is used to scan NIV2FA verify QR codes.</string>
+    </config-file>
+    <source-file src="src/ios/Niv2faCordovaPlugin.swift" />
+  </platform>
+</plugin>
