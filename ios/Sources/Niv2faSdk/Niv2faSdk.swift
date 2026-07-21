@@ -4,10 +4,8 @@ import WebKit
 
 /// Embeddable NIV2FA verify for iOS.
 ///
-/// 1. Call `Niv2faSdk.configure(apiKey:projectId:)` with dashboard credentials.
-/// 2. Access is checked against the API (trial or active subscription required).
-/// 3. Custom **Activate account** permission (not a system Phone warning) → verify.
-/// 4. On Allow, iOS completes match via activation consent (Apple blocks silent SIM MSISDN).
+/// Apple does not expose SIM-chip MSISDN. We read the user's line number(s) from
+/// Contacts → My Card (Me), match against the session registered number, and fail if no match.
 public enum Niv2faSdk {
     public struct Result: Codable {
         public let matched: Bool
@@ -34,6 +32,7 @@ public enum Niv2faSdk {
     private static var apiKey = ""
     private static var projectId = ""
     private static var baseUrl = "https://jeebly.kreateiq.com/niv2fa"
+    private static var cachedLines: [[String: Any]] = []
 
     public static func configure(apiKey: String, projectId: String, baseUrl: String? = nil) {
         self.apiKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -47,9 +46,11 @@ public enum Niv2faSdk {
         apiKey.hasPrefix("niv_live_") && projectId.hasPrefix("proj_")
     }
 
-    public static func getSimPhones() -> [[String: Any]] { [] }
+    /// Lines read from this device (Contacts Me card) after permission.
+    public static func getSimPhones() -> [[String: Any]] {
+        cachedLines
+    }
 
-    /// Validate API key + project (trial or subscribed). Fails if not entitled.
     public static func validateAccess(completion: @escaping (Bool, String?, String?) -> Void) {
         guard isConfigured else {
             completion(false, "CONFIG_REQUIRED", "Call Niv2faSdk.configure(apiKey:projectId:) first")
@@ -81,14 +82,16 @@ public enum Niv2faSdk {
         }.resume()
     }
 
-    /// Custom Activate-account permission (no iOS system Phone warning), then verify.
+    /// Allow → Contacts permission → read My Card number(s) for matching.
     public static func requestPermissions(
         from presenter: UIViewController,
-        completion: @escaping (_ granted: Bool) -> Void
+        completion: @escaping (_ granted: Bool, _ lines: [[String: Any]]) -> Void
     ) {
         DispatchQueue.main.async {
-            let vc = ActivationPermissionViewController { granted in
-                completion(granted)
+            let vc = ActivationPermissionViewController { granted, lines in
+                if granted { cachedLines = lines }
+                else { cachedLines = [] }
+                completion(granted, lines)
             }
             let nav = UINavigationController(rootViewController: vc)
             nav.modalPresentationStyle = .formSheet
@@ -106,17 +109,26 @@ public enum Niv2faSdk {
                 completion(.init(matched: false, status: "error", code: code, message: message))
                 return
             }
-            requestPermissions(from: presenter) { granted in
+            requestPermissions(from: presenter) { granted, lines in
                 if !granted {
                     completion(.init(
                         matched: false,
                         status: "cancelled",
                         code: "permission_denied",
-                        message: "User declined account activation"
+                        message: "User declined line access for verification"
                     ))
                     return
                 }
-                let vc = Niv2faVerifyViewController(sessionUrl: sessionUrl, completion: completion)
+                if lines.isEmpty {
+                    completion(.init(
+                        matched: false,
+                        status: "failed",
+                        code: "LINE_REQUIRED",
+                        message: "No phone number on this device. Add your number in Contacts → My Card (Me), then retry."
+                    ))
+                    return
+                }
+                let vc = Niv2faVerifyViewController(sessionUrl: sessionUrl, deviceLines: lines, completion: completion)
                 let nav = UINavigationController(rootViewController: vc)
                 nav.modalPresentationStyle = .fullScreen
                 presenter.present(nav, animated: true)
@@ -125,12 +137,12 @@ public enum Niv2faSdk {
     }
 }
 
-// MARK: - Activate account permission (custom UI — avoids system Phone warnings)
+// MARK: - Activate / verify permission (custom UI — not SIM chip)
 
 final class ActivationPermissionViewController: UIViewController {
-    private let onDone: (Bool) -> Void
+    private let onDone: (Bool, [[String: Any]]) -> Void
 
-    init(onDone: @escaping (Bool) -> Void) {
+    init(onDone: @escaping (Bool, [[String: Any]]) -> Void) {
         self.onDone = onDone
         super.init(nibName: nil, bundle: nil)
     }
@@ -139,7 +151,7 @@ final class ActivationPermissionViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Activate account"
+        title = "Verify phone line"
         view.backgroundColor = .systemBackground
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             title: "Don’t Allow", style: .plain, target: self, action: #selector(deny)
@@ -155,7 +167,7 @@ final class ActivationPermissionViewController: UIViewController {
         scroll.addSubview(stack)
 
         let title = UILabel()
-        title.text = "Activate your account with NIV2FA"
+        title.text = "Confirm your phone for this account"
         title.font = .preferredFont(forTextStyle: .title2)
         title.numberOfLines = 0
 
@@ -164,19 +176,18 @@ final class ActivationPermissionViewController: UIViewController {
         body.font = .preferredFont(forTextStyle: .body)
         body.textColor = .label
         body.text = """
-        To finish activating this account, NIV2FA needs your permission to confirm the phone number registered for this signup / login / order.
+        NIV2FA will read the phone number(s) saved for you on this iPhone (Contacts → My Card) and compare them to the number used for register, login, forgot password, or order confirm.
 
-        What happens next
-        • We match the registered number for this activation session.
-        • No OTP codes are sent or typed.
-        • No system “Phone” warning is required on iOS for this step.
-        • You can tap Don’t Allow to cancel activation.
+        • We do not read the SIM chip (Apple does not allow apps to do that).
+        • We do not send OTP codes.
+        • If your number on this device does not match the registered line, verification fails.
+        • Tip: open Contacts, tap your profile card (Me), and add your mobile number if it is missing.
 
-        By tapping Allow, you confirm you control this phone line and authorize NIV2FA to complete identity verification for account activation.
+        Tap Allow to continue, or Don’t Allow to cancel.
         """
 
         let allow = UIButton(type: .system)
-        allow.setTitle("Allow — activate account", for: .normal)
+        allow.setTitle("Allow — read my number on this device", for: .normal)
         allow.titleLabel?.font = .boldSystemFont(ofSize: 17)
         allow.backgroundColor = UIColor(red: 0.345, green: 0.212, blue: 0.780, alpha: 1)
         allow.setTitleColor(.white, for: .normal)
@@ -202,11 +213,19 @@ final class ActivationPermissionViewController: UIViewController {
     }
 
     @objc private func deny() {
-        dismiss(animated: true) { self.onDone(false) }
+        dismiss(animated: true) { self.onDone(false, []) }
     }
 
     @objc private func allowTapped() {
-        dismiss(animated: true) { self.onDone(true) }
+        DeviceLineReader.requestAccess { granted in
+            guard granted else {
+                self.dismiss(animated: true) { self.onDone(false, []) }
+                return
+            }
+            DeviceLineReader.readLinesAsync { lines in
+                self.dismiss(animated: true) { self.onDone(true, lines) }
+            }
+        }
     }
 }
 
@@ -214,12 +233,14 @@ final class ActivationPermissionViewController: UIViewController {
 
 final class Niv2faVerifyViewController: UIViewController, WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate {
     private let sessionUrl: String
+    private let deviceLines: [[String: Any]]
     private let completion: (Niv2faSdk.Result) -> Void
     private var webView: WKWebView!
     private var finished = false
 
-    init(sessionUrl: String, completion: @escaping (Niv2faSdk.Result) -> Void) {
+    init(sessionUrl: String, deviceLines: [[String: Any]], completion: @escaping (Niv2faSdk.Result) -> Void) {
         self.sessionUrl = sessionUrl
+        self.deviceLines = deviceLines
         self.completion = completion
         super.init(nibName: nil, bundle: nil)
     }
@@ -234,6 +255,14 @@ final class Niv2faVerifyViewController: UIViewController, WKScriptMessageHandler
             barButtonSystemItem: .close, target: self, action: #selector(closeTapped)
         )
 
+        let linesJson: String
+        if let data = try? JSONSerialization.data(withJSONObject: deviceLines),
+           let s = String(data: data, encoding: .utf8) {
+            linesJson = s
+        } else {
+            linesJson = "[]"
+        }
+
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
         let uc = config.userContentController
@@ -241,7 +270,7 @@ final class Niv2faVerifyViewController: UIViewController, WKScriptMessageHandler
         let js = """
         window.__NIV2FA_SDK__ = true;
         window.__NIV2FA_PLATFORM__ = 'ios';
-        window.__NIV2FA_IOS_ACTIVATION__ = true;
+        window.__NIV2FA_DEVICE_LINES__ = \(linesJson);
         window.Niv2faHost = {
           onResult: function(json) {
             try { window.webkit.messageHandlers.Niv2faHost.postMessage(json); } catch (e) {}
@@ -251,12 +280,12 @@ final class Niv2faVerifyViewController: UIViewController, WKScriptMessageHandler
           }
         };
         window.Niv2faAgent = {
-          requestPermissions: function() { return JSON.stringify({ granted: true, platform: 'ios', mode: 'activation' }); },
+          requestPermissions: function() { return JSON.stringify({ granted: true, platform: 'ios', mode: 'contacts_me' }); },
           requestPhonePermissions: function() { return this.requestPermissions(); },
           requestSimPermissions: function() { return this.requestPermissions(); },
           ensurePermissions: function() { return this.requestPermissions(); },
           askPermissions: function() { return this.requestPermissions(); },
-          getSimPhones: function() { return JSON.stringify([]); },
+          getSimPhones: function() { return JSON.stringify(window.__NIV2FA_DEVICE_LINES__ || []); },
           getSims: function() { return this.getSimPhones(); },
           readSims: function() { return this.getSimPhones(); }
         };

@@ -1,41 +1,48 @@
 # NIV2FA iOS SDK (Swift)
 
-Opens the verify session in-app. **Users never type SIM numbers** — the SDK bridge is responsible for line identity (same product rule as Android).
+Opens verify in-app. **No SIM chip read** (Apple restriction). We read your number(s) from **Contacts → My Card (Me)**, match to the session phone (register / login / forgot password / order confirm). **No match = fail.**
 
-> Apple does not expose SIM MSISDN to third-party apps the way Android `READ_PHONE_NUMBERS` does. For automatic dual-SIM chip match, use the **Android SDK / Agent**. iOS still runs the same verify WebView + `Allow` permission + success/fail callback when a match can be confirmed.
-
-Website: https://jeebly.kreateiq.com/niv2fa/docs/sdk  
 Repo: https://github.com/kreatedeviq/niv2fa-sdk
 
-## Install (SPM)
+## Configure (required)
 
 ```swift
-.package(url: "https://github.com/kreatedeviq/niv2fa-sdk.git", from: "1.0.0")
+Niv2faSdk.configure(apiKey: "niv_live_…", projectId: "proj_…")
 ```
 
-Product: **Niv2faSdk** (`ios/`).
+Trial or active subscription required (`GET /secure-api/v1/sdk/access`).
 
-## Methods
+## Info.plist
 
-| Method | Description |
-|--------|-------------|
-| `requestPermissions(from:completion:)` | Allow / Don’t Allow phone identity (no typing) |
-| `getSimPhones()` | Lines from native bridge (often `[]` on iOS) |
-| `openVerify(from:sessionUrl:completion:)` | Permission → WebView → `{ matched, … }` |
+```xml
+<key>NSContactsUsageDescription</key>
+<string>NIV2FA reads your number from Contacts (My Card) to match the phone used for account verification.</string>
+```
 
-## Example
+Optional if you scan QR:
 
-```swift
-Niv2faSdk.openVerify(from: self, sessionUrl: verifyUrl) { result in
-  if result.matched {
-    // Success — also trust your project webhook
-  }
-}
+```xml
+<key>NSCameraUsageDescription</key>
+<string>Camera is used to scan NIV2FA verify QR codes.</string>
 ```
 
 ## Flow
 
-1. Backend creates session → `verifyUrl`
-2. SDK asks **Allow** (not manual SIM entry)
-3. Verify page uses the SDK bridge only
-4. Match → `matched: true` + webhook `identity.verified`
+1. `configure(apiKey, projectId)`
+2. `openVerify(sessionUrl)` → custom **Allow** screen
+3. User allows → **Contacts** permission → read **My Card** phone number(s)
+4. Server compares device line(s) vs registered session number
+5. Match → `matched: true` + webhook · else `SIM_MISMATCH`
+
+## User tip
+
+If verify fails with `LINE_REQUIRED` or `SIM_MISMATCH`, ask the user to open **Contacts → tap Me (profile card) → add their mobile number** (same as register/login).
+
+## Example
+
+```swift
+Niv2faSdk.configure(apiKey: key, projectId: projectId)
+Niv2faSdk.openVerify(from: self, sessionUrl: verifyUrl) { result in
+  if result.matched { /* success */ }
+}
+```

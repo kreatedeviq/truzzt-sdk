@@ -44,8 +44,8 @@ On success your **project webhook** receives `identity.verified`.
 ## Important
 
 - **Configure first** or SDK methods / API return errors.
-- **Android:** Phone permission → auto-read SIM1/SIM2 → match.
-- **iOS:** custom **Activate account** Allow (no system Phone warning) → activation match.
+- **Android:** Phone permission → auto-read SIM1/SIM2 → must match session number.
+- **iOS:** Contacts **My Card (Me)** → read line on device → must match session number (not SIM chip).
 - Chrome cannot verify — open `verifyUrl` inside the SDK.
 - Standalone Agent APK is an optional Android helper.
 
