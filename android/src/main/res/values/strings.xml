@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Play / in-app rationales — docs/PERMISSIONS.md -->
+    <string name="truzzt_perm_phone_rationale">Allow phone access so Truzzt can confirm the SIM on this device matches the number you entered. We never call or text from this permission.</string>
+    <string name="truzzt_perm_contacts_rationale">Allow contacts so we can use a number you saved as “My number” if the SIM does not expose a line. We only look for your own number, not your full address book.</string>
+    <string name="truzzt_a11y_description">Truzzt reads the Device information dialog (*#06#) to verify your SIM phone number, IMEI, and ICCID during identity verification. This is optional and not required to complete verification.</string>
+</resources>

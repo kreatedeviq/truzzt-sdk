@@ -1,56 +1,63 @@
-# NIV2FA Flutter plugin
+# Truzzt Flutter plugin
 
-`niv2fa_flutter` — open NIV2FA verify from Flutter.
+`truzzt_flutter` — backend **`verifyUrl`** → **`TruzztFlutter.openVerify`**.
 
-Repo: https://github.com/kreatedeviq/niv2fa-sdk  
-Package path: `packages/flutter`
+Repo: https://github.com/kreatedeviq/truzzt-sdk  
+Package path: `packages/flutter`  
+Demo: https://truzzt.site/agent/app
 
 ## Install
 
-`pubspec.yaml`:
-
 ```yaml
 dependencies:
-  niv2fa_flutter:
+  truzzt_flutter:
     git:
-      url: https://github.com/kreatedeviq/niv2fa-sdk.git
+      url: https://github.com/kreatedeviq/truzzt-sdk.git
       path: packages/flutter
 ```
 
-Or local path:
+Android: `include ':truzzt-sdk'` — [ANDROID.md](./ANDROID.md).  
+iOS: `pod install`, `NSContactsUsageDescription` — [IOS.md](./IOS.md).  
+Store review reasons: **[PERMISSIONS.md](./PERMISSIONS.md)**.
 
-```yaml
-  niv2fa_flutter:
-    path: ../niv2fa-sdk/packages/flutter
-```
-
-### Android library
-
-`android/settings.gradle`:
-
-```gradle
-include ':niv2fa-sdk'
-project(':niv2fa-sdk').projectDir = new File(rootProject.projectDir, '../../niv2fa-sdk/android')
-```
-
-`android/app/build.gradle` (or the plugin’s android build) must `implementation project(':niv2fa-sdk')`.
-
-### iOS
-
-```bash
-cd ios && pod install
-```
-
-Add camera usage to `Info.plist` if not present.
-
-## Methods
+## Configure + theme
 
 ```dart
-import 'package:niv2fa_flutter/niv2fa_flutter.dart';
+import 'package:truzzt_flutter/truzzt_flutter.dart';
 
-await Niv2faFlutter.requestPermissions();
-final sims = await Niv2faFlutter.getSimPhones();
-final r = await Niv2faFlutter.openVerify(verifyUrl);
+await TruzztFlutter.configure(
+  apiKey: 'trz_live_…',
+  projectId: 'proj_…',
+  theme: {
+    'primary': '#0B1F3A',
+    'accent': '#FFC83D',
+    'background': '#071525',
+    'text': '#F7F4EE',
+    'muted': '#64748B',
+    'appName': 'MyApp',
+    'logoUrl': 'https://…',
+  },
+);
+```
+
+Theme is passed to native `configure` and appended to URLs in Dart via `TruzztFlutter.applyThemeToUrl`.
+
+## Create verification (backend)
+
+```dart
+// Your server POST /secure-api/v1/verifications → verifyUrl
+final verifyUrl = session['verifyUrl'] as String;
+```
+
+Optional **`theme`** on the verification request body (server applies to hosted verify page).
+
+## openVerify
+
+```dart
+await TruzztFlutter.requestPermissions();
+final r = await TruzztFlutter.openVerify(verifyUrl);
+// Per-call theme:
+// await TruzztFlutter.openVerify(verifyUrl, theme: {'accent': '#FFC83D'});
 
 if (r['matched'] == true) {
   final slot = r['matchedSlot'];
@@ -58,21 +65,41 @@ if (r['matched'] == true) {
 }
 ```
 
-| Method | Returns |
-|--------|---------|
-| `requestPermissions()` | `Map` |
-| `getSimPhones()` | `List` of sim maps |
-| `openVerify(String url)` | `Map` with `matched`, `matchedSlot`, `sessionId`, … |
-
 ## Permissions
 
-Android: merged from SDK.  
-iOS: `NSCameraUsageDescription`.
+Android: phone + contacts from SDK manifest.  
+iOS: Contacts usage string.
+
+## Result shape
+
+```json
+{
+  "matched": true,
+  "matchedSlot": "sim1",
+  "sessionId": "sess_…",
+  "status": "completed",
+  "platform": "android"
+}
+```
+
+## Methods
+
+| Method | Notes |
+|--------|--------|
+| `configure(..., theme?)` | Required |
+| `requestPermissions()` | |
+| `getSimPhones()` | |
+| `openVerify(url, { theme? })` | Themed WebView |
+| `applyThemeToUrl(url, [theme])` | URL helper |
 
 ## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
-| MissingPluginException | Full restart / rebuild native |
-| Unresolved niv2fa-sdk | Fix `settings.gradle` path |
-| iOS share dialog | User must Allow, then enter SIM1/(SIM2) |
+| MissingPluginException | Full rebuild |
+| Unresolved truzzt-sdk | Fix Gradle path |
+| Safari / external browser | Use `openVerify` |
+
+## License
+
+Proprietary — Kreate Technologies LLC / Truzzt.

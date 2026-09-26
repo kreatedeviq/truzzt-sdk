@@ -1,79 +1,90 @@
-# NIV2FA Cordova / Ionic Cordova plugin
+# Truzzt Cordova / Ionic Cordova plugin
 
-`cordova-plugin-niv2fa` — verify inside Cordova / Ionic Cordova apps.
+`cordova-plugin-truzzt` — open **`verifyUrl`** from your Login / Register / Forgot UI.
 
-Repo: https://github.com/kreatedeviq/niv2fa-sdk  
-Package path: `packages/cordova`
+Repo: https://github.com/kreatedeviq/truzzt-sdk  
+Package path: `packages/cordova`  
+Demo: https://truzzt.site/agent/app
 
 ## Install
 
 ```bash
-git clone https://github.com/kreatedeviq/niv2fa-sdk.git
-cordova plugin add /absolute/path/to/niv2fa-sdk/packages/cordova
-# or
-ionic cordova plugin add /absolute/path/to/niv2fa-sdk/packages/cordova
+git clone https://github.com/kreatedeviq/truzzt-sdk.git
+cordova plugin add /path/to/truzzt-sdk/packages/cordova
 ```
 
-From Git (after push):
+Link Android library `truzzt-sdk/android` per [ANDROID.md](./ANDROID.md).
 
-```bash
-cordova plugin add https://github.com/kreatedeviq/niv2fa-sdk.git#main:packages/cordova
+## Configure + theme
+
+```js
+Truzzt.configure(
+  {
+    apiKey: 'trz_live_…',
+    projectId: 'proj_…',
+    theme: {
+      primary: '#0B1F3A',
+      accent: '#FFC83D',
+      background: '#071525',
+      text: '#F7F4EE',
+      muted: '#64748B',
+      appName: 'MyApp',
+      logoUrl: 'https://…',
+    },
+  },
+  function () {},
+  console.error
+);
 ```
 
-Also include the Android library module `niv2fa-sdk/android` in your Cordova Android platform project (Gradle `include` / copy sources as documented in ANDROID.md).
+## Create verification (backend)
+
+Your server calls `POST /secure-api/v1/verifications` and returns `verifyUrl` to the WebView layer. Optional **`theme`** in the JSON body.
+
+## openVerify
+
+```js
+Truzzt.requestPermissions(function () {
+  Truzzt.openVerify(
+    { url: verifyUrl },
+    function (r) {
+      if (r.matched) console.log(r.matchedSlot, r.sessionId);
+    },
+    console.error
+  );
+}, console.error);
+```
+
+Per-call theme: `{ url: verifyUrl, theme: { accent: '#FFC83D' } }` (merged with configure theme on URL).
 
 ## Permissions
 
-Declared in `plugin.xml` for Android. iOS camera usage string is injected into Info.plist.
+Android (`plugin.xml`): `INTERNET`, `ACCESS_NETWORK_STATE`, `READ_PHONE_STATE`, `READ_PHONE_NUMBERS`, `READ_CONTACTS` — **no Camera**.  
+iOS: plugin injects `NSContactsUsageDescription` (My Card / owner-number match).
 
-## Methods (JS)
+Store review copy: **[PERMISSIONS.md](./PERMISSIONS.md)**
 
-```js
-Niv2fa.requestPermissions(
-  function (r) { console.log(r); },
-  function (e) { console.error(e); }
-);
+## Result shape
 
-Niv2fa.getSimPhones(
-  function (r) { console.log(r.sims); },
-  console.error
-);
-
-Niv2fa.openVerify(
-  { url: verifyUrl },
-  function (r) {
-    if (r.matched) {
-      console.log(r.matchedSlot, r.sessionId);
-    }
-  },
-  console.error
-);
-```
-
-Also available as `cordova.plugins.Niv2fa`.
-
-| Method | Args | Success payload |
-|--------|------|-----------------|
-| `requestPermissions` | — | `{ requested }` |
-| `getSimPhones` | — | `{ sims, platform }` |
-| `openVerify` | `{ url \| sessionUrl }` | `{ matched, matchedSlot, sessionId, … }` |
-
-## Ionic Angular (Cordova)
-
-```ts
-declare const Niv2fa: any;
-
-async verify(url: string) {
-  await new Promise((resolve, reject) => Niv2fa.requestPermissions(resolve, reject));
-  const r = await new Promise<any>((resolve, reject) => Niv2fa.openVerify({ url }, resolve, reject));
-  return r;
+```json
+{
+  "matched": true,
+  "matchedSlot": "sim1",
+  "sessionId": "sess_…",
+  "status": "completed"
 }
 ```
+
+Also available as `cordova.plugins.Truzzt`.
 
 ## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
-| `Niv2fa is not defined` | Ensure device ready; plugin installed; rebuild native |
-| ClassNotFound `Niv2faSdk` | Link `niv2fa-sdk/android` library into Cordova Android |
-| iOS share dialog | User must Allow, then enter SIM1/(SIM2) |
+| `Truzzt is not defined` | Device ready + rebuild |
+| ClassNotFound TruzztSdk | Link android module |
+| Opened verify in system browser | Use `openVerify` in plugin |
+
+## License
+
+Proprietary — Kreate Technologies LLC / Truzzt.

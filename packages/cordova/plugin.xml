@@ -1,37 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<plugin id="cordova-plugin-niv2fa" version="1.0.0" xmlns="http://apache.org/cordova/ns/plugins/1.0">
-  <name>Niv2fa</name>
-  <description>NIV2FA Network Identity verification (SIM1/SIM2 match) for Cordova / Ionic Cordova</description>
-  <js-module src="www/niv2fa.js" name="Niv2fa">
-    <clobbers target="Niv2fa" />
-    <clobbers target="cordova.plugins.Niv2fa" />
+<plugin id="cordova-plugin-truzzt" version="1.0.0" xmlns="http://apache.org/cordova/ns/plugins/1.0">
+  <name>Truzzt</name>
+  <description>Truzzt Network Identity verification (SIM1/SIM2 + Contacts match) for Cordova / Ionic Cordova</description>
+  <js-module src="www/truzzt.js" name="Truzzt">
+    <clobbers target="Truzzt" />
+    <clobbers target="cordova.plugins.Truzzt" />
   </js-module>
 
   <platform name="android">
     <config-file target="res/xml/config.xml" parent="/*">
-      <feature name="Niv2fa">
-        <param name="android-package" value="com.niv2fa.cordova.Niv2faCordovaPlugin" />
+      <feature name="Truzzt">
+        <param name="android-package" value="com.truzzt.cordova.TruzztCordovaPlugin" />
       </feature>
     </config-file>
+    <!-- Play Store reasons: docs/PERMISSIONS.md — no CAMERA / CALL_PHONE -->
     <config-file target="AndroidManifest.xml" parent="/manifest">
+      <uses-permission android:name="android.permission.INTERNET" />
+      <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
       <uses-permission android:name="android.permission.READ_PHONE_STATE" />
       <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
-      <uses-permission android:name="android.permission.CAMERA" />
-      <uses-permission android:name="android.permission.INTERNET" />
+      <uses-permission android:name="android.permission.READ_CONTACTS" />
     </config-file>
-    <source-file src="src/android/Niv2faCordovaPlugin.java" target-dir="src/com/niv2fa/cordova" />
-    <!-- Host apps should also include niv2fa-sdk/android as a library module -->
+    <source-file src="src/android/TruzztCordovaPlugin.java" target-dir="src/com/truzzt/cordova" />
+    <!-- Host apps should also include truzzt-sdk/android as a library module -->
   </platform>
 
   <platform name="ios">
     <config-file target="config.xml" parent="/*">
-      <feature name="Niv2fa">
-        <param name="ios-package" value="Niv2faCordovaPlugin" />
+      <feature name="Truzzt">
+        <param name="ios-package" value="TruzztCordovaPlugin" />
       </feature>
     </config-file>
-    <config-file target="*-Info.plist" parent="NSCameraUsageDescription">
-      <string>Camera is used to scan NIV2FA verify QR codes.</string>
+    <config-file target="*-Info.plist" parent="NSContactsUsageDescription">
+      <string>Truzzt needs access to Contacts to read your My Card (Me) number and any contact you saved as your own phone (for example “My number” or “رقمي”), so we can verify that this device owns the phone number used for login or registration. We do not sync your full address book.</string>
     </config-file>
-    <source-file src="src/ios/Niv2faCordovaPlugin.swift" />
+    <source-file src="src/ios/TruzztCordovaPlugin.swift" />
   </platform>
 </plugin>

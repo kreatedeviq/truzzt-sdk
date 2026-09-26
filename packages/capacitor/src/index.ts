@@ -1,11 +1,29 @@
 import { registerPlugin } from '@capacitor/core';
 
-export interface Niv2faVerifyOptions {
-  url?: string;
-  sessionUrl?: string;
+export interface TruzztTheme {
+  primary?: string;
+  primaryColor?: string;
+  accent?: string;
+  accentColor?: string;
+  background?: string;
+  bg?: string;
+  backgroundColor?: string;
+  text?: string;
+  textColor?: string;
+  muted?: string;
+  appName?: string;
+  name?: string;
+  logoUrl?: string;
+  logo?: string;
 }
 
-export interface Niv2faVerifyResult {
+export interface TruzztVerifyOptions {
+  url?: string;
+  sessionUrl?: string;
+  theme?: TruzztTheme;
+}
+
+export interface TruzztVerifyResult {
   matched: boolean;
   status?: string;
   matchedSlot?: string | null;
@@ -15,34 +33,47 @@ export interface Niv2faVerifyResult {
   platform?: string;
 }
 
-export interface Niv2faSimPhonesResult {
+export interface TruzztSimPhonesResult {
   sims: Array<{ slot?: string; phone?: string; msisdn?: string }>;
   platform?: string;
 }
 
-export interface Niv2faConfig {
+export interface TruzztConfig {
   apiKey: string;
   projectId: string;
   baseUrl?: string;
+  /** Host-app palette applied to the verify WebView */
+  theme?: TruzztTheme;
 }
 
-export interface Niv2faPlugin {
-  configure?(options: Niv2faConfig): Promise<{ ok: boolean }>;
+export interface TruzztPlugin {
+  configure?(options: TruzztConfig): Promise<{ ok: boolean }>;
   requestPermissions(): Promise<{ requested: boolean }>;
-  getSimPhones(): Promise<Niv2faSimPhonesResult>;
-  openVerify(options: Niv2faVerifyOptions): Promise<Niv2faVerifyResult>;
+  getSimPhones(): Promise<TruzztSimPhonesResult>;
+  openVerify(options: TruzztVerifyOptions): Promise<TruzztVerifyResult>;
 }
 
-const Native = registerPlugin<Niv2faPlugin>('Niv2fa', {
-  web: () => import('./web').then((m) => new m.Niv2faWeb()),
+const Native = registerPlugin<TruzztPlugin>('Truzzt', {
+  web: () => import('./web').then((m) => new m.TruzztWeb()),
 });
 
-let _cfg: Niv2faConfig | null = null;
-const DEFAULT_BASE = 'https://jeebly.kreateiq.com/niv2fa';
+let _cfg: TruzztConfig | null = null;
+const DEFAULT_BASE = 'https://truzzt.site';
+
+function applyThemeToUrl(url: string, theme?: TruzztTheme | null): string {
+  if (!url || !theme) return url;
+  const entries = Object.entries(theme).filter(([, v]) => v != null && String(v).trim() !== '');
+  if (!entries.length) return url;
+  const sep = url.includes('?') ? '&' : '?';
+  const qs = entries
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v).trim())}`)
+    .join('&');
+  return `${url}${sep}${qs}`;
+}
 
 async function assertAccess() {
   if (!_cfg?.apiKey || !_cfg?.projectId) {
-    throw Object.assign(new Error('Call Niv2fa.configure({ apiKey, projectId }) first'), {
+    throw Object.assign(new Error('Call Truzzt.configure({ apiKey, projectId }) first'), {
       code: 'CONFIG_REQUIRED',
     });
   }
@@ -60,12 +91,13 @@ async function assertAccess() {
   return body.data;
 }
 
-const Niv2fa = {
-  async configure(options: Niv2faConfig) {
+const Truzzt = {
+  async configure(options: TruzztConfig) {
     _cfg = {
       apiKey: String(options.apiKey || '').trim(),
       projectId: String(options.projectId || '').trim(),
       baseUrl: options.baseUrl,
+      theme: options.theme || undefined,
     };
     if (typeof Native.configure === 'function') {
       await Native.configure(_cfg);
@@ -80,10 +112,12 @@ const Niv2fa = {
     await assertAccess();
     return Native.getSimPhones();
   },
-  async openVerify(options: Niv2faVerifyOptions) {
+  async openVerify(options: TruzztVerifyOptions) {
     await assertAccess();
-    return Native.openVerify(options);
+    const raw = options.url || options.sessionUrl || '';
+    const themed = applyThemeToUrl(raw, options.theme || _cfg?.theme);
+    return Native.openVerify({ ...options, url: themed, sessionUrl: themed });
   },
 };
 
-export default Niv2fa;
+export default Truzzt;

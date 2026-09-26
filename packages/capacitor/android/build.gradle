@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace "com.niv2fa.capacitor"
+    namespace "com.truzzt.capacitor"
     compileSdk 35
     defaultConfig { minSdk 26 }
     compileOptions {
@@ -13,6 +13,6 @@ android {
 }
 
 dependencies {
-    implementation project(':niv2fa-sdk')
+    implementation project(':truzzt-sdk')
     implementation project(':capacitor-android')
 }

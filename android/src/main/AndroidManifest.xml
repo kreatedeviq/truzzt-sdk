@@ -1,17 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- See docs/PERMISSIONS.md for Play Store justifications. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- CAMERA / CALL_PHONE intentionally omitted — not used by Network Identity. -->
+
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
     <application>
+        <!-- Optional OEM helper (*#06#). Not required for default verify. -->
+        <service
+            android:name="com.truzzt.sdk.DeviceInfoAccessibilityService"
+            android:exported="false"
+            android:label="Truzzt Device Info"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/truzzt_device_info_accessibility" />
+        </service>
+
         <activity
-            android:name="com.niv2fa.sdk.Niv2faVerifyActivity"
+            android:name="com.truzzt.sdk.TruzztVerifyActivity"
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:hardwareAccelerated="true"

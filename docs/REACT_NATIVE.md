@@ -1,73 +1,125 @@
-# NIV2FA React Native plugin
+# Truzzt React Native plugin
 
-`@niv2fa/react-native` — open NIV2FA verify from React Native.
+`@truzzt/react-native` — Login / Register / Forgot flows: backend returns **`verifyUrl`**, app calls **`openVerify`**.
 
-Repo: https://github.com/kreatedeviq/niv2fa-sdk  
-Package path: `packages/react-native`
+Repo: https://github.com/kreatedeviq/truzzt-sdk  
+Package path: `packages/react-native`  
+Demo: https://truzzt.site/agent/app
 
 ## Install
 
 ```bash
-git clone https://github.com/kreatedeviq/niv2fa-sdk.git
+git clone https://github.com/kreatedeviq/truzzt-sdk.git
 cd YourApp
-npm install ../niv2fa-sdk/packages/react-native
-# or yarn add ../niv2fa-sdk/packages/react-native
+npm install ../truzzt-sdk/packages/react-native
 ```
-
-From Git:
-
-```json
-"@niv2fa/react-native": "github:kreatedeviq/niv2fa-sdk#main"
-```
-
-(You may need a thin package publish or `npm` git subdirectory tooling; preferred: local path or monorepo.)
 
 ### Android
 
-1. Include `:niv2fa-sdk` module (see ANDROID.md).
-2. Register package in `MainApplication`:
+1. Include `:truzzt-sdk` module — see [ANDROID.md](./ANDROID.md).
+2. Register in `MainApplication`:
 
 ```java
-import com.niv2fa.rn.Niv2faPackage;
+import com.truzzt.rn.TruzztPackage;
 
 @Override
 protected List<ReactPackage> getPackages() {
-  return Arrays.asList(
-    new MainReactPackage(),
-    new Niv2faPackage()
-  );
+  return Arrays.asList(new MainReactPackage(), new TruzztPackage());
 }
 ```
 
 ### iOS
 
-Link `Niv2faSdk` Swift package and the RN bridge files under `packages/react-native/ios`.  
-Add `NSCameraUsageDescription`.
+Link `TruzztSdk` (SPM) + `packages/react-native/ios`. Add `NSContactsUsageDescription` — see [IOS.md](./IOS.md).  
+Store review reasons (Play + App Store): **[PERMISSIONS.md](./PERMISSIONS.md)**.
 
-## Methods
+## Configure + theme
 
 ```js
-import { requestPermissions, getSimPhones, openVerify } from '@niv2fa/react-native';
+import { configure, requestPermissions, openVerify } from '@truzzt/react-native';
 
+await configure({
+  apiKey: 'trz_live_…',
+  projectId: 'proj_…',
+  theme: {
+    primary: '#0B1F3A',
+    accent: '#FFC83D',
+    background: '#071525',
+    text: '#F7F4EE',
+    muted: '#64748B',
+    appName: 'MyApp',
+    logoUrl: 'https://…',
+  },
+});
+```
+
+## Create verification (backend)
+
+```js
+const res = await fetch('https://truzzt.site/secure-api/v1/verifications', {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${API_KEY}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    projectId: 'proj_…',
+    phone: '9647721421709',
+    countryCode: '964',
+    purpose: 'login',
+    returnUrl: 'myapp://auth/done',
+    cancelUrl: 'myapp://auth/cancel',
+    theme: { accent: '#FFC83D', appName: 'MyApp' },
+  }),
+});
+const { data } = await res.json();
+const verifyUrl = data.verifyUrl || data.pairUrl;
+```
+
+## openVerify
+
+```js
 await requestPermissions();
-const { sims } = await getSimPhones();
-const r = await openVerify(verifyUrl);
+const r = await openVerify({ url: verifyUrl });
+// or openVerify(verifyUrl)
+// Per-call theme: openVerify({ url: verifyUrl, theme: { accent: '#…' } })
 
 if (r.matched) {
   console.log(r.matchedSlot, r.sessionId);
 }
 ```
 
-| Method | Returns |
-|--------|---------|
-| `requestPermissions()` | `{ requested }` |
-| `getSimPhones()` | `{ sims, platform }` |
-| `openVerify(url)` | `{ matched, matchedSlot, sessionId, status, … }` |
+## Permissions
+
+| OS | |
+|----|---|
+| Android | `READ_PHONE_STATE`, `READ_PHONE_NUMBERS`, `READ_CONTACTS` |
+| iOS | Contacts |
+
+## Result shape
+
+```json
+{
+  "matched": true,
+  "status": "completed",
+  "matchedSlot": "sim1",
+  "sessionId": "sess_…",
+  "platform": "android"
+}
+```
+
+## Expo
+
+Use [`@truzzt/expo`](../packages/expo) + Dev Client — see [EXPO.md](./EXPO.md).
 
 ## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
-| Native module null | Rebuild app; register `Niv2faPackage` |
-| ClassNotFound Niv2faSdk | Add android library module |
-| iOS share dialog | User must Allow, then enter SIM1/(SIM2) |
+| Native module null | Rebuild; register `TruzztPackage` |
+| ClassNotFound TruzztSdk | Add android library module |
+| Browser verify | Cannot match — use SDK |
+
+## License
+
+Proprietary — Kreate Technologies LLC / Truzzt.

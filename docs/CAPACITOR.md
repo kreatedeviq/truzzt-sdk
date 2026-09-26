@@ -1,86 +1,90 @@
-# NIV2FA Capacitor / Ionic Capacitor plugin
+# Truzzt Capacitor / Ionic Capacitor plugin
 
-`@niv2fa/capacitor` — open NIV2FA verify inside your Capacitor app.
+`@truzzt/capacitor` — themed verify WebView, automatic line match, no QR UX.
 
-Repo: https://github.com/kreatedeviq/niv2fa-sdk  
-Package path: `packages/capacitor`
+Repo: https://github.com/kreatedeviq/truzzt-sdk  
+Package path: `packages/capacitor`  
+Demo: https://truzzt.site/agent/app
 
 ## Install
 
 ```bash
-git clone https://github.com/kreatedeviq/niv2fa-sdk.git
+git clone https://github.com/kreatedeviq/truzzt-sdk.git
 cd your-app
-npm install ../niv2fa-sdk/packages/capacitor
-# or after publish: npm install @niv2fa/capacitor
-
+npm install ../truzzt-sdk/packages/capacitor
 npx cap sync
 ```
 
-### Android module
+Android: include `:truzzt-sdk` in `android/settings.gradle` — see [ANDROID.md](./ANDROID.md).
 
-In your Capacitor app `android/settings.gradle`:
+## Configure + theme
 
-```gradle
-include ':niv2fa-sdk'
-project(':niv2fa-sdk').projectDir = new File('../../niv2fa-sdk/android')
+```ts
+import Truzzt from '@truzzt/capacitor';
+
+await Truzzt.configure({
+  apiKey: 'trz_live_…',
+  projectId: 'proj_…',
+  theme: {
+    primary: '#0B1F3A',
+    accent: '#FFC83D',
+    background: '#071525',
+    text: '#F7F4EE',
+    muted: '#64748B',
+    appName: 'MyApp',
+    logoUrl: 'https://…',
+  },
+});
 ```
 
-Ensure the Capacitor plugin android module depends on `:niv2fa-sdk` (see package `android/build.gradle`).
+## Create verification (backend)
+
+`POST /secure-api/v1/verifications` with Bearer key, `projectId`, `phone`, `countryCode`, `purpose`, `returnUrl`, `cancelUrl`, optional **`theme`**. Use response **`verifyUrl`**.
+
+## openVerify
+
+```ts
+await Truzzt.requestPermissions();
+const result = await Truzzt.openVerify({ url: verifyUrl });
+// { url, theme } — theme overrides configure palette for this session
+
+if (result.matched) {
+  // webhook identity.verified
+}
+```
 
 ## Permissions
 
-Android (merged): `READ_PHONE_STATE`, `READ_PHONE_NUMBERS`, `CAMERA`, `INTERNET`.
+**Android:** `INTERNET`, `ACCESS_NETWORK_STATE`, `READ_PHONE_STATE`, `READ_PHONE_NUMBERS`, `READ_CONTACTS` (via native SDK — no Camera / Call Phone).
 
-iOS `Info.plist`:
+**iOS:** `NSContactsUsageDescription` in `Info.plist` (full string in [PERMISSIONS.md](./PERMISSIONS.md) / [IOS.md](./IOS.md)).
 
-```xml
-<key>NSCameraUsageDescription</key>
-<string>Camera is used to scan NIV2FA verify QR codes.</string>
-```
+Store review copy: **[PERMISSIONS.md](./PERMISSIONS.md)**
 
-## Methods
+## Result shape
 
-```ts
-import Niv2fa from '@niv2fa/capacitor';
-
-await Niv2fa.requestPermissions();
-const sims = await Niv2fa.getSimPhones(); // { sims: [...], platform }
-const result = await Niv2fa.openVerify({ url: verifyUrl });
-// or openVerify({ sessionUrl: verifyUrl })
-```
-
-| Method | Returns |
-|--------|---------|
-| `requestPermissions()` | `{ requested: boolean }` |
-| `getSimPhones()` | `{ sims: Array<{slot,phone}>, platform }` |
-| `openVerify({ url })` | `{ matched, matchedSlot, sessionId, status, code?, message?, platform }` |
-
-## Ionic example
-
-```ts
-import { Component } from '@angular/core';
-import Niv2fa from '@niv2fa/capacitor';
-
-@Component({ /* ... */ })
-export class VerifyPage {
-  async verify(url: string) {
-    await Niv2fa.requestPermissions();
-    const r = await Niv2fa.openVerify({ url });
-    if (r.matched) {
-      // also rely on webhook identity.verified
-    }
-  }
+```json
+{
+  "matched": true,
+  "matchedSlot": "sim1",
+  "sessionId": "sess_…",
+  "status": "completed",
+  "platform": "android"
 }
 ```
 
 ## Web (browser)
 
-`openVerify` opens the URL in a new tab. SIM reading is **not** available on web.
+Capacitor web fallback opens a tab — **no line match**. Ship native Android/iOS for production verify.
 
 ## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
-| Plugin not found | `npx cap sync` after install |
-| Unresolved `:niv2fa-sdk` | Add module in `settings.gradle` |
-| iOS share dialog | User must Allow, then enter SIM1/(SIM2) from Settings → Cellular |
+| Plugin not found | `npx cap sync` |
+| Unresolved `:truzzt-sdk` | Add Gradle module |
+| Chrome / web only | Use native platform |
+
+## License
+
+Proprietary — Kreate Technologies LLC / Truzzt.

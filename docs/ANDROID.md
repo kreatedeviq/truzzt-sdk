@@ -1,97 +1,112 @@
-# NIV2FA Android SDK (Java / Kotlin)
+# Truzzt Android SDK (Java / Kotlin)
 
-Embed Network Identity verification in your Android app. Reads **SIM1 / SIM2**, opens the verify WebView, matches the claimed number, and your **project webhook** receives `identity.verified`.
+Embed Network Identity in your Android app: **SIM1 / SIM2**, Contacts backup, themed verify WebView, line match, webhook **`identity.verified`**.
 
-> Standalone Agent APK is separate and optional: https://jeebly.kreateiq.com/niv2fa/agent
+Repo: https://github.com/kreatedeviq/truzzt-sdk  
+Demo: https://truzzt.site/agent/app · Agent APK: https://truzzt.site/agent
 
 ## Install
 
-### Option A — Git dependency (recommended)
+```bash
+git clone https://github.com/kreatedeviq/truzzt-sdk.git
+```
 
 ```gradle
 // settings.gradle
-include ':niv2fa-sdk'
-project(':niv2fa-sdk').projectDir = new File(settingsDir, '../path-or-clone/niv2fa-sdk/android')
-```
+include ':truzzt-sdk'
+project(':truzzt-sdk').projectDir = new File(settingsDir, '../path/truzzt-sdk/android')
 
-Or clone:
-
-```bash
-git clone https://github.com/kreatedeviq/niv2fa-sdk.git
-```
-
-```gradle
 // app/build.gradle
 dependencies {
-    implementation project(':niv2fa-sdk')
+    implementation project(':truzzt-sdk')
 }
 ```
 
-### Option B — Copy module
+## Configure + theme
 
-Copy the `android/` folder into your project as module `:niv2fa-sdk`.
+```java
+JSONObject theme = new JSONObject()
+    .put("primary", "#0B1F3A")
+    .put("accent", "#FFC83D")
+    .put("background", "#071525")
+    .put("text", "#F7F4EE")
+    .put("muted", "#94A3B8")
+    .put("appName", "MyApp")
+    .put("logoUrl", "https://example.com/logo.png");
 
-## Permissions
+TruzztSdk.configure("trz_live_…", "proj_…", null, theme);
+```
 
-Merged from the library manifest:
+Kotlin helper [`Truzzt.kt`](../android/src/main/java/com/truzzt/sdk/Truzzt.kt):
 
-- `READ_PHONE_STATE`
-- `READ_PHONE_NUMBERS`
-- `READ_CONTACTS` (backup: saved "my number" contacts)
-- `CAMERA`
-- `INTERNET`
-- `ACCESS_NETWORK_STATE`
+```kotlin
+Truzzt.configure(
+    apiKey = "trz_live_…",
+    projectId = "proj_…",
+    theme = mapOf("accent" to "#FFC83D", "appName" to "MyApp"),
+)
+```
 
-Runtime: call `Niv2faSdk.requestPermissions(activity)` before verify.
+Theme is appended to `verifyUrl` query params when you use `verifyIntent` / `openVerify`.
 
-## How we find your number
+## Create verification (backend)
 
-| Source | What it is |
-|--------|------------|
-| **SIM chip (SIM1 / SIM2)** | Primary — `READ_PHONE_NUMBERS` |
-| **Saved owner contacts** | Backup — contacts named e.g. `My number`, `رقمي`, `My line` |
+```http
+POST https://truzzt.site/secure-api/v1/verifications
+Authorization: Bearer trz_live_…
 
-If the carrier leaves MSISDN blank on the SIM, a saved contact like **"رقمي Asia"** can still match (same as many dual-SIM users do manually).
+{
+  "projectId": "proj_…",
+  "phone": "9647721421709",
+  "countryCode": "964",
+  "purpose": "register",
+  "returnUrl": "myapp://auth/done",
+  "cancelUrl": "myapp://auth/cancel",
+  "theme": { "primary": "#0B1F3A", "accent": "#FFC83D" }
+}
+```
 
-## Methods
+Use `data.verifyUrl` — **no QR** in the app UX.
 
-| Method | Description |
-|--------|-------------|
-| `Niv2faSdk.requestPermissions(Activity)` | Request phone + camera |
-| `Niv2faSdk.getSimPhones(Activity)` | `JSONArray` of `{ slot, phone, … }` |
-| `Niv2faSdk.getSimPhonesJson(Activity)` | Same as JSON string |
-| `Niv2faSdk.verifyIntent(Activity, url)` | Intent for in-app verify WebView |
-| `Niv2faSdk.openVerify(Activity, url, requestCode)` | `startActivityForResult` helper |
-| `Niv2faSdk.parseResult(Intent)` | Parse activity result → `JSONObject` |
-
-## Kotlin example
+## openVerify
 
 ```kotlin
 companion object { const val REQ_NIV = 9101 }
 
-fun startVerify(sessionUrl: String) {
-    Niv2faSdk.requestPermissions(this)
-    startActivityForResult(Niv2faSdk.verifyIntent(this, sessionUrl), REQ_NIV)
+fun startVerify(verifyUrl: String) {
+    TruzztSdk.requestPermissions(this)
+    startActivityForResult(TruzztSdk.verifyIntent(this, verifyUrl), REQ_NIV)
 }
 
 override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-    super.onActivityResult(requestCode, resultCode, data)
     if (requestCode != REQ_NIV) return
-    val r = Niv2faSdk.parseResult(data)
+    val r = TruzztSdk.parseResult(data)
     if (r.optBoolean("matched")) {
-        // Also trust your project webhook identity.verified
-        val slot = r.optString("matchedSlot")
-        val sessionId = r.optString("sessionId")
+        // Also trust webhook identity.verified
     }
 }
 ```
 
-## Java example
+## Permissions
 
-```java
-Niv2faSdk.requestPermissions(this);
-startActivityForResult(Niv2faSdk.verifyIntent(this, sessionUrl), 9101);
-```
+Required (merged by the SDK — **no Camera / Call Phone**):
+
+- `INTERNET`, `ACCESS_NETWORK_STATE`
+- `READ_PHONE_STATE`, `READ_PHONE_NUMBERS`
+- `READ_CONTACTS`
+
+Runtime: `TruzztSdk.requestPermissions(activity)` before verify.
+
+**Play Store justifications** (copy/paste for Console + reviewers): **[PERMISSIONS.md](./PERMISSIONS.md)**  
+In-app rationale strings: `R.string.truzzt_perm_phone_rationale`, `R.string.truzzt_perm_contacts_rationale`.
+
+## Line sources
+
+| Source | Description |
+|--------|-------------|
+| SIM chip | SIM1 / SIM2 MSISDN |
+| Device info / *#06# | Optional accessibility capture |
+| Contacts | Owner contacts e.g. **My number**, **رقمي** |
 
 ## Result JSON
 
@@ -100,29 +115,36 @@ startActivityForResult(Niv2faSdk.verifyIntent(this, sessionUrl), 9101);
   "matched": true,
   "status": "completed",
   "matchedSlot": "sim1",
+  "matchedSource": "sim_chip",
   "sessionId": "sess_…",
-  "platform": "sdk"
+  "platform": "android"
 }
 ```
 
-## End-to-end
+## Methods
 
-1. Your backend: `POST /secure-api/v1/verifications` with `phone`, `projectId`, `returnUrl`.
-2. Receive `data.verifyUrl`.
-3. Call `openVerify` / `verifyIntent` with that URL.
-4. User allows Phone permission → SIM1 or SIM2 matched.
-5. Webhook `identity.verified` hits your `project.webhook_url`.
-6. Activity result returns `matched: true`.
+| Method | Description |
+|--------|-------------|
+| `configure(apiKey, projectId[, baseUrl[, theme]])` | Required |
+| `requestPermissions(Activity)` | Phone + Contacts |
+| `getSimPhones(Activity)` | JSONArray of lines |
+| `verifyIntent(Activity, url)` | Themed verify WebView intent |
+| `openVerify(Activity, url, requestCode)` | Helper |
+| `parseResult(Intent)` | Activity result |
+| `applyThemeToUrl(url)` | URL theming |
 
 ## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
-| Empty SIM list | Carrier left MSISDN blank; check Settings → About → SIM status |
-| `meta is not defined` | Update server (fixed) |
-| Permission denied | Call `requestPermissions` and grant Phone |
-| Wrong number | Expected — only matching SIM succeeds |
+| Empty SIM list | Carrier blank MSISDN; add Contacts **رقمي** |
+| Permission denied | Call `requestPermissions` |
+| Opened URL in Chrome | Use SDK — browser cannot match lines |
 
 ## Min SDK
 
 `minSdk 26` · `compileSdk 35`
+
+## License
+
+Proprietary — Kreate Technologies LLC / Truzzt.

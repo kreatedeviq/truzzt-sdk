@@ -1,10 +1,10 @@
 {
-  "name": "@niv2fa/capacitor",
+  "name": "@truzzt/capacitor",
   "version": "1.0.0",
-  "description": "NIV2FA Network Identity verify plugin for Capacitor / Ionic",
+  "description": "Truzzt Network Identity verify plugin for Capacitor / Ionic",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist/", "android/", "ios/", "Niv2fa.podspec"],
+  "files": ["dist/", "android/", "ios/", "Truzzt.podspec"],
   "author": "Kreate Technologies LLC",
   "license": "Proprietary",
   "peerDependencies": {

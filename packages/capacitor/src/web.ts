@@ -1,16 +1,16 @@
-import type { Niv2faPlugin, Niv2faVerifyOptions, Niv2faVerifyResult, Niv2faSimPhonesResult } from './index';
+import type { TruzztPlugin, TruzztVerifyOptions, TruzztVerifyResult, TruzztSimPhonesResult } from './index';
 
 /** Browser fallback — cannot read SIM; opens verify URL in a new tab. */
-export class Niv2faWeb implements Niv2faPlugin {
+export class TruzztWeb implements TruzztPlugin {
   async requestPermissions() {
     return { requested: false };
   }
 
-  async getSimPhones(): Promise<Niv2faSimPhonesResult> {
+  async getSimPhones(): Promise<TruzztSimPhonesResult> {
     return { sims: [], platform: 'web' };
   }
 
-  async openVerify(options: Niv2faVerifyOptions): Promise<Niv2faVerifyResult> {
+  async openVerify(options: TruzztVerifyOptions): Promise<TruzztVerifyResult> {
     const url = options.url || options.sessionUrl;
     if (!url) {
       return { matched: false, status: 'error', code: 'missing_url', platform: 'web' };

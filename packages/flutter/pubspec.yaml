@@ -1,7 +1,7 @@
-name: niv2fa_flutter
-description: NIV2FA Network Identity verification plugin (SIM1/SIM2 match on Android; in-app verify WebView on iOS)
+name: truzzt_flutter
+description: Truzzt Network Identity verification plugin (SIM1/SIM2 match on Android; in-app verify WebView on iOS)
 version: 1.0.0
-homepage: https://jeebly.kreateiq.com/niv2fa/docs/sdk
+homepage: https://truzzt.site/docs/sdk
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
@@ -11,10 +11,10 @@ flutter:
   plugin:
     platforms:
       android:
-        package: com.niv2fa.flutter
-        pluginClass: Niv2faFlutterPlugin
+        package: com.truzzt.flutter
+        pluginClass: TruzztFlutterPlugin
       ios:
-        pluginClass: Niv2faFlutterPlugin
+        pluginClass: TruzztFlutterPlugin
 
 dependencies:
   flutter:

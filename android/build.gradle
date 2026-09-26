@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace 'com.niv2fa.sdk'
+    namespace 'com.truzzt.sdk'
     compileSdk 35
 
     defaultConfig {
