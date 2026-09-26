@@ -1,22 +1,23 @@
 # Truzzt SDK & plugins
 
+**NO OTP · OTP-LESS · OTP IS GONE** — verify the phone on-device (SIM / Contacts), not SMS codes.
+
 **GitHub:** https://github.com/kreatedeviq/truzzt-sdk  
 **Website docs:** https://truzzt.site/docs/sdk  
-**Live demo (Login / Register / Forgot):** https://truzzt.site/agent/app  
-**Standalone Agent APK (optional):** https://truzzt.site/agent  
+**Live demo:** https://truzzt.site/agent/app  
+**Agent APK:** [Release v2.0.0](https://github.com/kreatedeviq/truzzt-sdk/releases/tag/v2.0.0)
 
-Embed **Network Identity** verification inside your mobile apps: the SDK reads device phone lines (Android SIM + Contacts; iOS Contacts Me / owner lines), opens a themed verify WebView, and matches the session phone. Your **project webhook** receives `identity.verified`.
+Embed **Network Identity** in your app: read device lines (Android SIM + Contacts; iOS Contacts Me / owner lines), open a themed verify WebView, match the session phone. Webhook: `identity.verified`.  
+**No OTP. No SMS codes. No QR in the primary UX.**
 
-## Product flow (no QR in UX)
+## Product flow
 
-1. Host app shows **Login / Register / Forgot** (password optional).
-2. Your backend: `POST https://truzzt.site/secure-api/v1/verifications` with Bearer API key, body includes `projectId`, `phone`, `countryCode`, `purpose` (`login` | `register` | `forgot_password`), `returnUrl`, `cancelUrl`, optional **`theme`**.
-3. Response: **`verifyUrl`** — open this URL; no QR step required.
-4. App calls **`openVerify(verifyUrl)`** — themed verify WebView.
-5. SDK reads lines and the verify page POSTs to `/secure-api/identity/verify`.
-6. Result: `matched: true` + webhook **`identity.verified`**.
+1. Host app: Login / Register / Forgot (password optional).
+2. Backend: `POST https://truzzt.site/secure-api/v1/verifications` (Bearer key + `projectId`, `phone`, `purpose`, `returnUrl`…).
+3. Open returned **`verifyUrl`** with **`openVerify`** inside the SDK.
+4. SDK reads lines → match → `matched: true` + webhook.
 
-Plain browsers show an agent-style shell with **Try again** — they cannot read SIM/Contacts lines.
+Browsers alone cannot match lines (Try again shell only).
 
 ## Platform matrix
 
@@ -29,15 +30,91 @@ Plain browsers show an agent-style shell with **Try again** — they cannot read
 | Flutter | [`packages/flutter`](./packages/flutter) | [docs/FLUTTER.md](./docs/FLUTTER.md) |
 | React Native | [`packages/react-native`](./packages/react-native) | [docs/REACT_NATIVE.md](./docs/REACT_NATIVE.md) |
 | Expo (Dev Client) | [`packages/expo`](./packages/expo) | [docs/EXPO.md](./docs/EXPO.md) |
-| **Permissions (Play / App Store)** | — | **[docs/PERMISSIONS.md](./docs/PERMISSIONS.md)** |
+| Permissions (Play / App Store) | — | **[docs/PERMISSIONS.md](./docs/PERMISSIONS.md)** |
 
-## Install (clone)
+## Install
+
+Clone once (all platforms share this repo):
 
 ```bash
 git clone https://github.com/kreatedeviq/truzzt-sdk.git
 ```
 
-Then follow the platform guide (Gradle module / SPM / npm / pub / Cordova plugin add / Expo plugin).
+### Android (Java / Kotlin)
+
+```gradle
+// settings.gradle
+include ':truzzt-sdk'
+project(':truzzt-sdk').projectDir = new File(settingsDir, '../truzzt-sdk/android')
+
+// app/build.gradle
+dependencies { implementation project(':truzzt-sdk') }
+```
+
+### iOS (Swift Package Manager)
+
+```swift
+.package(url: "https://github.com/kreatedeviq/truzzt-sdk.git", from: "2.0.0")
+// product: TruzztSdk
+```
+
+### Capacitor / Ionic
+
+```bash
+npm install ./truzzt-sdk/packages/capacitor
+# or: npm install github:kreatedeviq/truzzt-sdk#main --workspace=@truzzt/capacitor  (path install preferred)
+npx cap sync
+```
+
+Link native `:truzzt-sdk` Android module + iOS SPM — see [CAPACITOR.md](./docs/CAPACITOR.md).
+
+### Cordova
+
+```bash
+cordova plugin add ./truzzt-sdk/packages/cordova
+# or from a clone path:
+# cordova plugin add /absolute/path/truzzt-sdk/packages/cordova
+```
+
+Also include `truzzt-sdk/android` as a library module — see [CORDOVA.md](./docs/CORDOVA.md).
+
+### Flutter
+
+```yaml
+# pubspec.yaml
+dependencies:
+  truzzt_flutter:
+    git:
+      url: https://github.com/kreatedeviq/truzzt-sdk.git
+      path: packages/flutter
+```
+
+```bash
+flutter pub get
+```
+
+### React Native
+
+```bash
+npm install ./truzzt-sdk/packages/react-native
+# link TruzztPackage (Android) + TruzztSdk SPM (iOS) — see REACT_NATIVE.md
+```
+
+### Expo (Dev Client — not Expo Go)
+
+```bash
+npm install ./truzzt-sdk/packages/expo ./truzzt-sdk/packages/react-native
+```
+
+```json
+{ "expo": { "plugins": ["@truzzt/expo"] } }
+```
+
+```bash
+npx expo prebuild
+npx expo run:android
+# or: npx expo run:ios
+```
 
 ## Shared API
 
@@ -62,18 +139,16 @@ const r = await Truzzt.openVerify({ url: verifyUrl });
 // → { matched, matchedSlot, sessionId, status, … }
 ```
 
-**Theme** can be set via `configure(…, theme)`, optional **`theme`** on create verification, and/or query params on `verifyUrl`. Keys: `accent`, `background`, `text`, `muted`, `primary`, `appName`, `logoUrl` (aliases like `primaryColor` also work on native).
-
-Backend `POST /secure-api/v1/verifications` requires `projectId` + valid Bearer key. Fails with `PLAN_REQUIRED` (402) if the free first year ended and there is no subscription.
+Theme keys: `accent`, `background`, `text`, `muted`, `primary`, `appName`, `logoUrl`.
 
 ## Important
 
-- **Configure first** or SDK methods / API return errors.
-- **Android:** Phone + Contacts → SIM1/SIM2 and saved owner contacts. **No Camera / Call Phone.**
-- **iOS:** Contacts **My Card (Me)** + saved **"My number"** / **"رقمي"** lines (not SIM chip).
-- Open **`verifyUrl` inside the SDK** (or Agent app) — not Chrome alone.
-- Treat the **webhook** as source of truth for your backend.
-- **Store review:** copy permission reasons from **[docs/PERMISSIONS.md](./docs/PERMISSIONS.md)**.
+- **OTP-less** — Network Identity match only (no SMS OTP).
+- Configure before any SDK call.
+- Android: Phone + Contacts. iOS: Contacts Me / owner contacts.
+- Open `verifyUrl` **inside the SDK**, not Chrome alone.
+- Webhook `identity.verified` is source of truth.
+- Store permission copy: [PERMISSIONS.md](./docs/PERMISSIONS.md) (short).
 
 ## License
 
